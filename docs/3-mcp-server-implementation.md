@@ -1,45 +1,45 @@
 # 3. MCP SERVER — Admin Intelligence Backend
 
-## ¿QUÉ ES MCP? (Recap rápido)
+## WHAT IS MCP? (Quick Recap)
 
-**Model Context Protocol** = un protocolo para conectar Claude a herramientas personalizadas.
+**Model Context Protocol** = a protocol for connecting Claude to custom tools.
 
-**Sin MCP:**
+**Without MCP:**
 ```
 Admin → Dashboard UI → REST API → Backend → Data
-(Manual, lento, sin reasoning)
+(Manual, slow, no reasoning)
 ```
 
-**Con MCP:**
+**With MCP:**
 ```
 Admin → Claude + MCP → Backend (tools) → Data
-Claude analiza automáticamente y da insights
-(Automático, rápido, inteligente)
+Claude automatically analyzes and gives insights
+(Automatic, fast, intelligent)
 ```
 
-**Ejemplo real:**
+**Real example:**
 ```
-Admin: "¿Hay patrones fraudes esta semana?"
+Admin: "Any fraud patterns this week?"
        ↓
-Claude conecta a MCP Server
+Claude connects to the MCP Server
        ↓
-Claude llama analyze_fraud tool automáticamente
+Claude automatically calls the analyze_fraud tool
        ↓
-Backend analiza últimas 7 días de órdenes
+Backend analyzes the last 7 days of orders
        ↓
-Claude retorna: "Detecté 3 órdenes sospechosas por volumen"
+Claude returns: "I detected 3 suspicious orders by volume"
        ↓
-Admin puede tomar decisiones inmediatamente
+Admin can make decisions immediately
 ```
 
 ---
 
-## ARQUITECTURA MCP
+## MCP ARCHITECTURE
 
 ```
 ┌─────────────────────────────────────────────┐
 │ Claude (AI)                                 │
-│ "¿Cuál fue el evento más exitoso?"          │
+│ "Which event was the most successful?"      │
 └──────────────────┬──────────────────────────┘
                    │
         ┌──────────▼──────────┐
@@ -74,9 +74,9 @@ Admin puede tomar decisiones inmediatamente
 
 ---
 
-## PRIMITIVAS MCP
+## MCP PRIMITIVES
 
-### 1. TOOLS (Funciones que Claude llama)
+### 1. TOOLS (Functions Claude calls)
 
 ```typescript
 {
@@ -92,7 +92,7 @@ Admin puede tomar decisiones inmediatamente
 }
 ```
 
-### 2. RESOURCES (Datos que Claude puede leer)
+### 2. RESOURCES (Data Claude can read)
 
 ```typescript
 {
@@ -102,7 +102,7 @@ Admin puede tomar decisiones inmediatamente
 }
 ```
 
-### 3. PROMPTS (Sistema prompts para contexto)
+### 3. PROMPTS (System prompts for context)
 
 ```typescript
 {
@@ -116,9 +116,9 @@ Admin puede tomar decisiones inmediatamente
 
 ---
 
-## IMPLEMENTACIÓN PASO A PASO
+## STEP-BY-STEP IMPLEMENTATION
 
-### PASO 1: Setup MCP Server
+### STEP 1: Set Up the MCP Server
 
 ```typescript
 // packages/api/src/mcp/server.ts
@@ -137,8 +137,8 @@ import { DetectFraudTool } from "./tools/detect-fraud";
 import { PriceOptimizationTool } from "./tools/price-optimization";
 
 /**
- * MCP Server para admin backend
- * Se conecta vía stdin/stdout a Claude
+ * MCP Server for the admin backend
+ * Connects to Claude over stdin/stdout
  */
 export async function createMcpServer() {
   const server = new Server({
@@ -146,7 +146,7 @@ export async function createMcpServer() {
     version: "1.0.0",
   });
 
-  // Instanciar tools
+  // Instantiate tools
   const analyzeSalesTool = new AnalyzeSalesTool();
   const detectFraudTool = new DetectFraudTool();
   const priceOptimizationTool = new PriceOptimizationTool();
@@ -267,7 +267,7 @@ export async function createMcpServer() {
           break;
 
         case "forecast_demand":
-          // Implementar forecast
+          // Implement forecast
           result = { error: "Not yet implemented" };
           break;
 
@@ -487,7 +487,7 @@ Make specific, data-driven price recommendations.`;
     };
   });
 
-  // Conectar transport
+  // Connect the transport
   const transport = new StdioServerTransport();
   await server.connect(transport);
 
@@ -496,7 +496,7 @@ Make specific, data-driven price recommendations.`;
   console.log("Available resources: analytics://events/*, analytics://orders/*, analytics://revenue/*");
 }
 
-// Ejecutar
+// Run
 if (import.meta.main) {
   createMcpServer().catch(console.error);
 }
@@ -504,9 +504,9 @@ if (import.meta.main) {
 
 ---
 
-### PASO 2: Implementar Tools
+### STEP 2: Implement the Tools
 
-#### Tool 1: Análisis de Ventas
+#### Tool 1: Sales Analysis
 
 ```typescript
 // packages/api/src/mcp/tools/analyze-sales.ts
@@ -524,7 +524,7 @@ export class AnalyzeSalesTool {
   }) {
     const { performance_id, time_range, include_prediction } = input;
 
-    // Calcular rango de fechas
+    // Compute the date range
     const now = new Date();
     let startDate = new Date();
 
@@ -536,7 +536,7 @@ export class AnalyzeSalesTool {
       startDate.setDate(now.getDate() - 30);
     }
 
-    // Obtener órdenes en el rango
+    // Fetch orders in the range
     const orders = await db
       .select()
       .from(ordersTable)
@@ -548,10 +548,10 @@ export class AnalyzeSalesTool {
         )
       );
 
-    // Agrupar por hora
+    // Group by hour
     const hourlyData = this.groupByHour(orders);
 
-    // Calcular estadísticas
+    // Compute statistics
     const stats = {
       totalOrders: orders.length,
       totalRevenue: orders.reduce((sum, o) => sum + parseFloat(o.totalPrice), 0),
@@ -566,7 +566,7 @@ export class AnalyzeSalesTool {
       growthTrend: this.calculateGrowth(hourlyData),
     };
 
-    // Predicción (si se solicita)
+    // Prediction (if requested)
     let prediction = null;
     if (include_prediction) {
       prediction = this.predictDemand(hourlyData);
@@ -608,7 +608,7 @@ export class AnalyzeSalesTool {
   }
 
   private calculateConversionRate(orders: any[]) {
-    // Simulación: porcentaje de órdenes completadas vs totales intentadas
+    // Simulated: percentage of completed orders vs total attempted
     const completed = orders.filter((o) => o.status === 'completed').length;
     return orders.length > 0 ? (completed / orders.length) * 100 : 0;
   }
@@ -633,7 +633,7 @@ export class AnalyzeSalesTool {
 
     const average = values.reduce((a, b) => a + b, 0) / values.length;
     const nextHourPrediction =
-      average * (1 + Math.random() * 0.1 - 0.05); // ±5% variación
+      average * (1 + Math.random() * 0.1 - 0.05); // ±5% variation
 
     return {
       nextHour: Math.round(nextHourPrediction),
@@ -671,7 +671,7 @@ export class AnalyzeSalesTool {
 }
 ```
 
-#### Tool 2: Detección de Fraude
+#### Tool 2: Fraud Detection
 
 ```typescript
 // packages/api/src/mcp/tools/detect-fraud.ts
@@ -688,7 +688,7 @@ export class DetectFraudTool {
     const startDate = new Date(Date.now() - lookback_hours * 60 * 60 * 1000);
     const endDate = new Date();
 
-    // Obtener órdenes recientes
+    // Fetch recent orders
     const orders = await db
       .select()
       .from(ordersTable)
@@ -701,11 +701,11 @@ export class DetectFraudTool {
 
     const suspiciousOrders: any[] = [];
 
-    // Análisis 1: Múltiples órdenes del mismo IP
+    // Analysis 1: Multiple orders from the same IP
     const ipGroups = this.groupByIp(orders);
     for (const [ip, groupOrders] of Object.entries(ipGroups)) {
       if (groupOrders.length > 5) {
-        // Umbral configurable
+        // Configurable threshold
         for (const order of groupOrders) {
           suspiciousOrders.push({
             orderId: order.id,
@@ -717,7 +717,7 @@ export class DetectFraudTool {
       }
     }
 
-    // Análisis 2: Compras rápidas del mismo usuario
+    // Analysis 2: Rapid purchases from the same user
     const userGroups = this.groupByUser(orders);
     for (const [userId, userOrders] of Object.entries(userGroups)) {
       const rapidOrders = this.findRapidPurchases(userOrders);
@@ -731,7 +731,7 @@ export class DetectFraudTool {
       }
     }
 
-    // Análisis 3: Órdenes de alto valor inusual
+    // Analysis 3: Unusually high-value orders
     const avgOrderValue = this.calculateAverageOrderValue(orders);
     for (const order of orders) {
       const orderValue = parseFloat(order.totalPrice);
@@ -745,7 +745,7 @@ export class DetectFraudTool {
       }
     }
 
-    // Análisis 4: Compra de secciones completas
+    // Analysis 4: Purchase of an entire section
     for (const order of orders) {
       const orderItems = await this.getOrderItems(order.id);
       if (this.isCompleteSectionPurchase(orderItems)) {
@@ -758,7 +758,7 @@ export class DetectFraudTool {
       }
     }
 
-    // Deduplicar y ranking
+    // Deduplicate and rank
     const uniqueSuspicious = this.deduplicateAndRank(suspiciousOrders);
 
     return {
@@ -804,7 +804,7 @@ export class DetectFraudTool {
         new Date(sorted[i - 1].createdAt).getTime();
 
       if (timeDiff < 5000) {
-        // Menos de 5 segundos
+        // Less than 5 seconds
         rapid.push(sorted[i]);
       }
     }
@@ -872,7 +872,7 @@ export class DetectFraudTool {
 }
 ```
 
-#### Tool 3: Optimización de Precios
+#### Tool 3: Price Optimization
 
 ```typescript
 // packages/api/src/mcp/tools/price-optimization.ts
@@ -884,16 +884,16 @@ export class PriceOptimizationTool {
   }) {
     const { performance_id, strategy } = input;
 
-    // Obtener datos actuales
+    // Get current data
     const performance = await this.getPerformance(performance_id);
     const currentPricing = await this.getCurrentPricing(performance_id);
     const soldSeats = await this.getSoldSeatsCount(performance_id);
     const capacityUtilization = (soldSeats / performance.capacity) * 100;
 
-    // Obtener demanda histórica
+    // Get historical demand
     const demandTrend = await this.analyzeDemandTrend(performance_id);
 
-    // Calcular recomendación según estrategia
+    // Calculate recommendation based on strategy
     let recommendation: any;
 
     if (strategy === 'maximize_revenue') {
@@ -935,7 +935,7 @@ export class PriceOptimizationTool {
 
   private optimizeForRevenue(currentPricing: any, utilization: number, demand: string) {
     if (utilization > 80) {
-      // Mucha demanda, subir precios
+      // High demand, raise prices
       return {
         adjustments: {
           premium: { current: currentPricing.premium, recommended: currentPricing.premium * 1.15 },
@@ -946,7 +946,7 @@ export class PriceOptimizationTool {
         expectedRevenueIncrease: '12-15%',
       };
     } else if (utilization < 40) {
-      // Poca demanda, bajar precios
+      // Low demand, lower prices
       return {
         adjustments: {
           premium: { current: currentPricing.premium, recommended: currentPricing.premium * 0.9 },
@@ -957,14 +957,14 @@ export class PriceOptimizationTool {
         expectedRevenueIncrease: '8-10%',
       };
     } else {
-      // Demanda normal, ajustes finos
+      // Normal demand, fine adjustments
       return {
         adjustments: {
           premium: { current: currentPricing.premium, recommended: currentPricing.premium * 1.05 },
           standard: { current: currentPricing.standard, recommended: currentPricing.standard * 1.02 },
           economy: { current: currentPricing.economy, recommended: currentPricing.economy },
         },
-        reasoning: '➡️ Stable demand. Fine-tune for slight revenue increase.',
+        reasoning: '➡️ Stable demand. Fine-tune for a slight revenue increase.',
         expectedRevenueIncrease: '3-5%',
       };
     }
@@ -972,7 +972,7 @@ export class PriceOptimizationTool {
 
   private optimizeForSellOut(currentPricing: any, utilization: number, demand: string) {
     if (demand === 'declining') {
-      // Bajar precios agresivamente
+      // Cut prices aggressively
       return {
         adjustments: {
           premium: { current: currentPricing.premium, recommended: currentPricing.premium * 0.75 },
@@ -996,14 +996,14 @@ export class PriceOptimizationTool {
   }
 
   private optimizeForCustomerValue(currentPricing: any, utilization: number) {
-    // Balanceado
+    // Balanced
     return {
       adjustments: {
         premium: { current: currentPricing.premium, recommended: currentPricing.premium * 0.98 },
         standard: { current: currentPricing.standard, recommended: currentPricing.standard * 0.95 },
         economy: { current: currentPricing.economy, recommended: currentPricing.economy * 0.9 },
       },
-      reasoning: '😊 Balanced approach: good value for customers, decent margin for business.',
+      reasoning: '😊 Balanced approach: good value for customers, decent margin for the business.',
       expectedCustomerSatisfaction: 'High',
     };
   }
@@ -1012,7 +1012,7 @@ export class PriceOptimizationTool {
 
 ---
 
-### PASO 3: Implementar Resources
+### STEP 3: Implement the Resources
 
 ```typescript
 // packages/api/src/mcp/resources/analytics.ts
@@ -1057,7 +1057,7 @@ export async function getRecentAnomalies(): Promise<any> {
         gte(ordersTable.createdAt, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)),
         or(
           gt(ordersTable.totalPrice, 500),
-          // Agregar más condiciones...
+          // Add more conditions...
         )
       )
     )
@@ -1078,7 +1078,7 @@ export async function getRevenueForecast(): Promise<any> {
     const date = new Date();
     date.setDate(date.getDate() + i);
 
-    // Simulación: basado en patrones históricos
+    // Simulated: based on historical patterns
     const historicalAvg = await this.getHistoricalAverage(date.getDay());
     const predicted = historicalAvg * (1 + Math.random() * 0.2 - 0.1);
 
@@ -1099,21 +1099,21 @@ export async function getRevenueForecast(): Promise<any> {
 
 ---
 
-### PASO 4: Ejecutar MCP Server
+### STEP 4: Run the MCP Server
 
 ```typescript
 // packages/api/src/mcp/cli.ts
 
 /**
- * CLI para conectar Claude al MCP Server
+ * CLI to connect Claude to the MCP Server
  * 
- * Uso:
+ * Usage:
  * npx ts-node src/mcp/cli.ts
  * 
- * Luego en Claude:
- * 1. Crear conexión MCP
- * 2. Seleccionar "stdio"
- * 3. Comando: npx ts-node src/mcp/cli.ts
+ * Then in Claude:
+ * 1. Create an MCP connection
+ * 2. Select "stdio"
+ * 3. Command: npx ts-node src/mcp/cli.ts
  */
 
 import { createMcpServer } from './server';
@@ -1134,13 +1134,13 @@ main().catch(console.error);
 
 ---
 
-## USANDO MCP CON CLAUDE
+## USING MCP WITH CLAUDE
 
-### Opción 1: MCP en Desktop Client
+### Option 1: MCP in the Desktop Client
 
 ```
-1. Descargar Claude Desktop
-2. Configurar ~/.claude/config.json:
+1. Download Claude Desktop
+2. Configure ~/.claude/config.json:
 
 {
   "mcp": {
@@ -1153,8 +1153,8 @@ main().catch(console.error);
   }
 }
 
-3. Reiniciar Claude
-4. Preguntar:
+3. Restart Claude
+4. Ask:
 
 "What were our top performing events last month?"
 Claude → MCP → analyze_sales_patterns
@@ -1165,10 +1165,10 @@ Claude → MCP → detect_fraudulent_orders
 Claude → Returns suspicious orders
 ```
 
-### Opción 2: MCP programaticamente
+### Option 2: MCP Programmatically
 
 ```typescript
-// Backend integrando MCP directamente
+// Backend integrating MCP directly
 
 import { ToolsRegistry } from './ai/tools/tools.registry';
 import { ToolsRegistry as McpToolsRegistry } from './mcp/tools/mcp.registry';
@@ -1188,53 +1188,53 @@ export async function analyzeWithMcp(query: string) {
 
 ---
 
-## FLUJO COMPLETO: Admin Query
+## COMPLETE FLOW: Admin Query
 
 ```
-Admin: "¿Qué debería hacer con los precios de mañana? 
-        ¿Hay algo sospechoso en las órdenes?"
+Admin: "What should I do about tomorrow's pricing?
+        Is there anything suspicious in the orders?"
 
    ↓
 
-Claude recibe query
+Claude receives the query
 
    ↓
 
-Claude decide:
-1. Necesito datos de demanda → analyze_sales_patterns
-2. Necesito detectar fraude → detect_fraudulent_orders
-3. Necesito recomendaciones → suggest_price_changes
+Claude decides:
+1. I need demand data → analyze_sales_patterns
+2. I need fraud detection → detect_fraudulent_orders
+3. I need recommendations → suggest_price_changes
 
    ↓
 
-Claude llama 3 tools en paralelo (via MCP)
+Claude calls 3 tools in parallel (via MCP)
 
    ↓
 
 Results:
 - Sales: 78% capacity, growing demand
 - Fraud: 2 suspicious orders detected
-- Pricing: Recommend 10% increase
+- Pricing: Recommend a 10% increase
 
    ↓
 
-Claude sintetiza y retorna:
+Claude synthesizes and returns:
 
-"Recomendaciones para mañana:
+"Recommendations for tomorrow:
 
 ✅ PRICING
-- Aumentar precios 10% en todas las categorías
-- Capacidad al 78% con demanda creciente
-- Impacto esperado: +15% en ingresos
+- Increase prices 10% across all categories
+- Capacity at 78% with growing demand
+- Expected impact: +15% in revenue
 
 🚨 FRAUD ALERT
-- Detecté 2 órdenes sospechosas
-- Una compró sección completa en 30 segundos
-- Recomiendo revisar manualmente
+- Detected 2 suspicious orders
+- One bought an entire section in 30 seconds
+- I recommend a manual review
 
 📊 SUMMARY
-- Si implementas precios: ~€2,500 ingresos adicionales
-- Si ignoras fraud: riesgo de ~€800 en chargeback"
+- If you apply the pricing change: ~€2,500 in additional revenue
+- If you ignore the fraud: ~€800 chargeback risk"
 ```
 
 ---
@@ -1272,26 +1272,26 @@ describe('MCP Server', () => {
 
 ## CHECKLIST
 
-- [ ] MCP Server setup con StdioServerTransport
-- [ ] Implementar AnalyzeSalesTool con SQL queries
-- [ ] Implementar DetectFraudTool con múltiples análisis
-- [ ] Implementar PriceOptimizationTool con estrategias
-- [ ] Implementar Resources (analytics://)
-- [ ] Implementar Prompts (system messages)
-- [ ] CLI para conectar Claude Desktop
-- [ ] Tests de ejecución de tools
-- [ ] Documentación para admins
+- [ ] MCP Server setup with StdioServerTransport
+- [ ] Implement AnalyzeSalesTool with SQL queries
+- [ ] Implement DetectFraudTool with multiple analyses
+- [ ] Implement PriceOptimizationTool with strategies
+- [ ] Implement Resources (analytics://)
+- [ ] Implement Prompts (system messages)
+- [ ] CLI to connect Claude Desktop
+- [ ] Tool execution tests
+- [ ] Documentation for admins
 
 ---
 
 ## TL;DR
 
-**MCP = Backend inteligente para Claude**
+**MCP = An intelligent backend for Claude**
 
-1. Define **Tools** (funciones que Claude puede llamar)
-2. Define **Resources** (datos que Claude puede leer)
-3. Define **Prompts** (system messages para contexto)
-4. Claude **usa automáticamente** los tools
-5. Admin obtiene **análisis y insights** sin UI
+1. Define **Tools** (functions Claude can call)
+2. Define **Resources** (data Claude can read)
+3. Define **Prompts** (system messages for context)
+4. Claude **automatically uses** the tools
+5. Admin gets **analysis and insights** without a UI
 
-**Esto es nivel enterprise: Claude como tu CTO automático.**
+**This is enterprise-level: Claude as your automated CTO.**

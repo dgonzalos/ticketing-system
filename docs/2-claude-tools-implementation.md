@@ -1,37 +1,37 @@
 # 2. CLAUDE TOOLS — Complete Implementation
 
-## CONCEPTOS CLAVE
+## KEY CONCEPTS
 
-### ¿Qué es un Tool?
+### What is a Tool?
 
-Un **tool** es una función que Claude puede llamar automáticamente.
+A **tool** is a function that Claude can call automatically.
 
 ```
-Usuario: "Busca eventos románticos"
+User: "Search for romantic events"
   ↓
-Claude entiende que necesita buscar
+Claude understands it needs to search
   ↓
-Claude llama automáticamente search_events(genres=['romance'])
+Claude automatically calls search_events(genres=['romance'])
   ↓
-Backend ejecuta la búsqueda
+Backend executes the search
   ↓
-Retorna resultados a Claude
+Returns results to Claude
   ↓
-Claude retorna respuesta al usuario
+Claude returns the response to the user
 ```
 
-**Sin tools:**
-- Claude: "Sí, buscaré eventos románticos... (pero no puede hacer nada)"
+**Without tools:**
+- Claude: "Sure, I'll search for romantic events... (but it can't actually do anything)"
 
-**Con tools:**
-- Claude: "Voy a usar search_events para encontrarlos"
-- Claude llama el tool automáticamente
-- Claude ve los resultados
-- Claude retorna insights
+**With tools:**
+- Claude: "I'm going to use search_events to find them"
+- Claude calls the tool automatically
+- Claude sees the results
+- Claude returns insights
 
 ---
 
-## ARQUITECTURA DE TOOLS
+## TOOL ARCHITECTURE
 
 ```
 ┌─────────────────────────────────────┐
@@ -42,14 +42,14 @@ Claude retorna respuesta al usuario
 └──────────────┬──────────────────────┘
                │
 ┌──────────────▼──────────────────────┐
-│ Tool Executor (Implementación)      │
+│ Tool Executor (Implementation)      │
 │ ├─ validate input                   │
 │ ├─ execute business logic           │
 │ └─ return result                    │
 └──────────────┬──────────────────────┘
                │
 ┌──────────────▼──────────────────────┐
-│ Tool Handler (Orquestación)         │
+│ Tool Handler (Orchestration)        │
 │ ├─ send to Claude                   │
 │ ├─ detect tool calls                │
 │ ├─ execute tools                    │
@@ -59,9 +59,9 @@ Claude retorna respuesta al usuario
 
 ---
 
-## IMPLEMENTACIÓN PASO A PASO
+## STEP-BY-STEP IMPLEMENTATION
 
-### PASO 1: Definir Tool Schema
+### STEP 1: Define Tool Schema
 
 ```typescript
 // packages/api/src/ai/tools/search-events.ts
@@ -69,8 +69,8 @@ Claude retorna respuesta al usuario
 import { z } from 'zod';
 
 /**
- * Input schema con Zod
- * Define QUÉ puede recibir Claude
+ * Input schema with Zod
+ * Defines WHAT Claude can send
  */
 export const SearchEventsInputSchema = z.object({
   genres: z
@@ -114,7 +114,7 @@ export type SearchEventsInput = z.infer<typeof SearchEventsInputSchema>;
 
 /**
  * Output schema
- * Define QUÉ retorna el tool
+ * Defines WHAT the tool returns
  */
 export const SearchEventsOutputSchema = z.object({
   success: z.boolean(),
@@ -137,10 +137,10 @@ export type SearchEventsOutput = z.infer<typeof SearchEventsOutputSchema>;
 
 ---
 
-### PASO 2: Implementar Tool Executor
+### STEP 2: Implement the Tool Executor
 
 ```typescript
-// packages/api/src/ai/tools/search-events.ts (continuación)
+// packages/api/src/ai/tools/search-events.ts (continued)
 
 import { EventService } from '@/domain/events/event.service';
 
@@ -148,7 +148,7 @@ export class SearchEventsTool {
   constructor(private eventService: EventService) {}
 
   /**
-   * Retornar definición del tool para Claude
+   * Return the tool definition for Claude
    */
   getDefinition() {
     return {
@@ -184,23 +184,23 @@ export class SearchEventsTool {
             description: 'Max results (1-50)',
           },
         },
-        required: [], // Todos opcionales
+        required: [], // All optional
       },
     };
   }
 
   /**
-   * Ejecutar el tool
-   * Claude llama esto automáticamente
+   * Execute the tool
+   * Claude calls this automatically
    */
   async execute(input: unknown): Promise<SearchEventsOutput> {
     try {
-      // 1. Validar input con Zod
+      // 1. Validate input with Zod
       const validated = SearchEventsInputSchema.parse(input);
 
       console.log('🔍 Searching events with filters:', validated);
 
-      // 2. Ejecutar negocio
+      // 2. Run the business logic
       const events = await this.eventService.search({
         genres: validated.genres,
         priceRange: validated.min_price
@@ -212,7 +212,7 @@ export class SearchEventsTool {
         toDate: validated.to_date ? new Date(validated.to_date) : undefined,
       });
 
-      // 3. Formatear resultado
+      // 3. Format the result
       return {
         success: true,
         data: events.slice(0, validated.limit),
@@ -242,7 +242,7 @@ export class SearchEventsTool {
 
 ---
 
-### PASO 3: Definir Otros Tools
+### STEP 3: Define Other Tools
 
 ```typescript
 // packages/api/src/ai/tools/get-event-details.ts
@@ -346,7 +346,7 @@ export class CheckAvailabilityTool {
 
 ---
 
-### PASO 4: Registrar Tools
+### STEP 4: Register Tools
 
 ```typescript
 // packages/api/src/ai/tools/tools.registry.ts
@@ -377,7 +377,7 @@ export class ToolsRegistry {
   }
 
   /**
-   * Retornar definiciones para Claude
+   * Return definitions for Claude
    */
   getDefinitions() {
     return Array.from(this.tools.values()).map((tool) =>
@@ -386,7 +386,7 @@ export class ToolsRegistry {
   }
 
   /**
-   * Ejecutar un tool por nombre
+   * Execute a tool by name
    */
   async execute(toolName: string, input: unknown) {
     const tool = this.tools.get(toolName);
@@ -401,7 +401,7 @@ export class ToolsRegistry {
 
 ---
 
-### PASO 5: Handler Multi-Turn
+### STEP 5: Multi-Turn Handler
 
 ```typescript
 // packages/api/src/ai/handlers/search-handler.ts
@@ -431,15 +431,15 @@ export class SearchHandler {
   }
 
   /**
-   * Orquestar multi-turn conversation con Claude
+   * Orchestrate a multi-turn conversation with Claude
    * 
-   * Flujo:
-   * 1. Usuario envía query
-   * 2. Claude responde con tool calls
-   * 3. Ejecutar los tools
-   * 4. Pasar resultados a Claude
-   * 5. Claude genera respuesta final
-   * 6. Retornar al usuario
+   * Flow:
+   * 1. User sends a query
+   * 2. Claude responds with tool calls
+   * 3. Execute the tools
+   * 4. Pass the results back to Claude
+   * 5. Claude generates the final response
+   * 6. Return it to the user
    */
   async handle(query: string, userId: string): Promise<SearchResult> {
     const messages: Anthropic.Messages.MessageParam[] = [
@@ -453,7 +453,7 @@ export class SearchHandler {
     let continueLoop = true;
     let finalReasoning = '';
 
-    // Safety: máximo 5 iteraciones
+    // Safety: max 5 iterations
     const maxIterations = 5;
     let iteration = 0;
 
@@ -462,7 +462,7 @@ export class SearchHandler {
 
       console.log(`[Iteration ${iteration}] Calling Claude...`);
 
-      // Llamar a Claude con tools disponibles
+      // Call Claude with the available tools
       const response = await this.client.messages.create({
         model: 'claude-opus-4',
         max_tokens: 2048,
@@ -475,24 +475,24 @@ export class SearchHandler {
         contentCount: response.content.length,
       });
 
-      // Procesar content blocks
+      // Process content blocks
       const assistantContent: Anthropic.Messages.ContentBlockParam[] = [];
 
       for (const block of response.content) {
         if (block.type === 'text') {
-          // Claude escribió texto
+          // Claude wrote text
           finalReasoning += block.text;
           assistantContent.push(block);
         }
 
         if (block.type === 'tool_use') {
-          // Claude quiere usar un tool
-          console.log(`📞 Claude llamó tool: ${block.name}`);
+          // Claude wants to use a tool
+          console.log(`📞 Claude called tool: ${block.name}`);
 
           assistantContent.push(block);
 
           try {
-            // Ejecutar el tool
+            // Execute the tool
             const toolResult = await this.toolsRegistry.execute(
               block.name,
               block.input
@@ -503,14 +503,14 @@ export class SearchHandler {
               success: toolResult.success,
             });
 
-            // Guardar para debugging
+            // Save for debugging
             toolCalls.push({
               toolName: block.name,
               input: block.input,
               result: toolResult,
             });
 
-            // Pasar resultado a Claude en siguiente mensaje
+            // Pass the result back to Claude in the next message
             messages.push({
               role: 'assistant',
               content: assistantContent,
@@ -527,7 +527,7 @@ export class SearchHandler {
               ],
             });
 
-            // Resetear para siguiente iteración
+            // Reset for the next iteration
             assistantContent.length = 0;
           } catch (error) {
             console.error(`❌ Tool error:`, error);
@@ -558,20 +558,20 @@ export class SearchHandler {
         }
       }
 
-      // Determinar si continuar
+      // Determine whether to continue
       if (response.stop_reason === 'end_turn') {
-        // Claude terminó de hablar
+        // Claude finished talking
         continueLoop = false;
       } else if (response.stop_reason === 'tool_use') {
-        // Claude usó tools, continuar para procesar resultados
+        // Claude used tools, continue to process the results
         continueLoop = true;
       } else {
-        // Otro stop reason
+        // Other stop reason
         continueLoop = false;
       }
     }
 
-    // Extraer recomendaciones
+    // Extract recommendations
     const recommendations = toolCalls
       .filter((tc) => tc.toolName === 'search_events')
       .flatMap((tc) => (tc.result as any).data || []);
@@ -587,7 +587,7 @@ export class SearchHandler {
 
 ---
 
-### PASO 6: API Route
+### STEP 6: API Route
 
 ```typescript
 // packages/api/src/api/routes/search.ts
@@ -632,7 +632,7 @@ export async function searchRoutes(app: FastifyInstance) {
 
         const startTime = Date.now();
 
-        // Usar handler
+        // Use the handler
         const searchHandler = new SearchHandler(app.toolsRegistry);
         const result = await searchHandler.handle(query, userId);
 
@@ -708,7 +708,7 @@ describe('SearchEventsTool', () => {
 
   it('should reject invalid input', async () => {
     const result = await tool.execute({
-      min_price: -10, // Inválido
+      min_price: -10, // Invalid
     });
 
     expect(result.success).toBe(false);
@@ -734,7 +734,7 @@ describe('Search Handler Multi-Turn', () => {
     expect(result.recommendations.length).toBeGreaterThan(0);
     expect(result.toolCalls.length).toBeGreaterThan(0);
 
-    // Verificar que se llamaron múltiples tools
+    // Verify that multiple tools were called
     const toolNames = result.toolCalls.map((tc) => tc.toolName);
     expect(toolNames).toContain('search_events');
   });
@@ -747,7 +747,7 @@ describe('Search Handler Multi-Turn', () => {
     const handler = new SearchHandler(toolsRegistry);
     const result = await handler.handle('Find events', 'user_123');
 
-    // No debe fallar la llamada, pero recommendations vacío
+    // The call should not fail, but recommendations should be empty
     expect(result.toolCalls[0].result.success).toBe(false);
   });
 });
@@ -755,23 +755,23 @@ describe('Search Handler Multi-Turn', () => {
 
 ---
 
-## FLUJO COMPLETO: Ejemplo Real
+## COMPLETE FLOW: A Real Example
 
-**Usuario:** "Busca conciertos de jazz para el próximo fin de semana, románticos, menores de €40"
+**User:** "Find jazz concerts for next weekend, romantic, under €40"
 
 ```
 1. POST /search
-   body: { query: "conciertos de jazz para el próximo fin de semana, románticos, menores de €40" }
+   body: { query: "jazz concerts for next weekend, romantic, under €40" }
 
 2. SearchHandler.handle(query)
 
-3. Mensaje 1: User → Claude
+3. Message 1: User → Claude
    {
      role: 'user',
-     content: "conciertos de jazz para el próximo fin de semana, románticos, menores de €40"
+     content: "jazz concerts for next weekend, romantic, under €40"
    }
 
-4. Claude responde con tool_use:
+4. Claude responds with tool_use:
    {
      type: 'tool_use',
      name: 'search_events',
@@ -779,19 +779,19 @@ describe('Search Handler Multi-Turn', () => {
      input: {
        genres: ['music', 'jazz'],
        max_price: 40,
-       from_date: '2024-09-07',  // próximo viernes
-       to_date: '2024-09-09'      // domingo
+       from_date: '2024-09-07',  // next Friday
+       to_date: '2024-09-09'      // Sunday
      }
    }
 
-5. Backend ejecuta:
+5. Backend executes:
    SearchEventsTool.execute(input)
    → EventService.search({ genres: ['music', 'jazz'], priceRange: [0, 40], ... })
    → EventRepository.findByFilters()
    → PostgreSQL query
-   → Retorna 5 eventos de jazz baratos
+   → Returns 5 cheap jazz events
 
-6. Mensaje 2: User → Claude (con tool result)
+6. Message 2: User → Claude (with tool result)
    {
      role: 'user',
      content: [{
@@ -801,38 +801,38 @@ describe('Search Handler Multi-Turn', () => {
      }]
    }
 
-7. Claude llama siguiente tool:
+7. Claude calls the next tool:
    {
      type: 'tool_use',
      name: 'get_event_details',
      input: { event_id: 'event_1' }
    }
 
-8. Backend ejecuta:
+8. Backend executes:
    GetDetailsTool.execute({ event_id: 'event_1' })
-   → Retorna info completa, disponibilidad, reseñas
+   → Returns full info, availability, reviews
 
-9. Claude piensa y retorna:
-   "Te recomiendo estos conciertos de jazz para el fin de semana:
+9. Claude thinks and returns:
+   "I recommend these jazz concerts for the weekend:
    
-   1. 'Summer Jazz Festival' - Viernes 22:00
-      Banda: The Blue Notes Quartet
-      Precio: €35
+   1. 'Summer Jazz Festival' - Friday 10 PM
+      Band: The Blue Notes Quartet
+      Price: €35
       Rating: 4.8/5
-      ¿Por qué? Es el evento más valorado y está dentro de presupuesto
+      Why? It's the highest-rated event and within budget
    
-   2. 'Intimate Jazz Night' - Sábado 21:00
-      Banda: Sarah's Jazz Collective
-      Precio: €38
+   2. 'Intimate Jazz Night' - Saturday 9 PM
+      Band: Sarah's Jazz Collective
+      Price: €38
       Rating: 4.6/5
-      ¿Por qué? Ambiente muy romántico, perfecto para pareja"
+      Why? Very romantic atmosphere, perfect for a couple"
 
-10. Response al cliente:
+10. Response to the client:
     {
       success: true,
       data: {
         recommendations: [...],
-        reasoning: "te recomiendo...",
+        reasoning: "I recommend...",
         toolCalls: [
           { toolName: 'search_events', ... },
           { toolName: 'get_event_details', ... }
@@ -845,27 +845,27 @@ describe('Search Handler Multi-Turn', () => {
 
 ## CHECKLIST
 
-- [ ] Definir `SearchEventsInputSchema` con Zod
-- [ ] Implementar `SearchEventsTool.execute()`
-- [ ] Implementar `GetDetailsTool` y `CheckAvailabilityTool`
-- [ ] Crear `ToolsRegistry`
-- [ ] Implementar `SearchHandler` con multi-turn loop
-- [ ] Registrar tools en API route
-- [ ] Tests de execution individual
-- [ ] Tests de multi-turn
-- [ ] Tests de error handling
-- [ ] Logging de tool calls
+- [ ] Define `SearchEventsInputSchema` with Zod
+- [ ] Implement `SearchEventsTool.execute()`
+- [ ] Implement `GetDetailsTool` and `CheckAvailabilityTool`
+- [ ] Create `ToolsRegistry`
+- [ ] Implement `SearchHandler` with the multi-turn loop
+- [ ] Register tools in the API route
+- [ ] Individual execution tests
+- [ ] Multi-turn tests
+- [ ] Error handling tests
+- [ ] Log tool calls
 
 ---
 
 ## TL;DR
 
-**Tools = Frontend automatizado para Claude**
+**Tools = Automated frontend for Claude**
 
-1. **Define schema** (qué puede recibir/retornar)
-2. **Implementa executor** (qué hace cuando se llama)
-3. **Registra en registry** (disponible para Claude)
-4. **Claude llama automáticamente** cuando necesita
-5. **Maneja resultados** y continúa si necesario
+1. **Define the schema** (what it can receive/return)
+2. **Implement the executor** (what happens when it's called)
+3. **Register it in the registry** (available for Claude)
+4. **Claude calls it automatically** when needed
+5. **Handle results** and continue if necessary
 
-**Esto es lo que hace diferente a un chatbot normal vs un AI Agent profesional.**
+**This is what makes a professional AI Agent different from a regular chatbot.**

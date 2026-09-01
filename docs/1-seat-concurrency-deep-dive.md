@@ -1,17 +1,17 @@
-# 1. CONCURRENCIA DE BUTACAS — Deep Dive
+# 1. SEAT CONCURRENCY — Deep Dive
 
-## EL PROBLEMA
+## THE PROBLEM
 
-Imagina:
-- Butaca A12 disponible
-- Usuario A abre la página
-- Usuario B abre la página
-- A selecciona A12 y hace checkout
-- B también selecciona A12 y hace checkout
-- **¿Quién gana?**
+Imagine:
+- Seat A12 available
+- User A opens the page
+- User B opens the page
+- A selects A12 and checks out
+- B also selects A12 and checks out
+- **Who wins?**
 
 ```
-Usuario A         Usuario B         Database
+User A            User B            Database
    │                 │                 │
    ├─ Check A12 ──────────────────────>│ A12: available
    │                 │                 │
@@ -24,13 +24,13 @@ Usuario A         Usuario B         Database
    └─ ERROR: Double sold!
 ```
 
-**Esto es un RACE CONDITION.**
+**This is a RACE CONDITION.**
 
 ---
 
-## SOLUCIONES
+## SOLUTIONS
 
-### ❌ Solución 1: Confiar en Frontend
+### ❌ Solution 1: Trust the Frontend
 
 ```javascript
 // frontend/src/components/SeatMap.tsx
@@ -44,19 +44,19 @@ const handleSeatClick = (seatId) => {
   }
 };
 
-// ❌ MALA: Usuario A selecciona, Usuario B puede ver y hacer click igual
+// ❌ BAD: User A selects, User B can see it and click it too
 ```
 
-**Problema:** Frontend no controla nada. Backend es la verdad.
+**Problem:** The frontend controls nothing. The backend is the source of truth.
 
 ---
 
-### ✅ Solución 2: Seat Locks con Timestamps (ELEGIDA)
+### ✅ Solution 2: Seat Locks with Timestamps (CHOSEN)
 
-**Idea:** Cuando usuario selecciona una butaca, reservarla por 5 minutos.
+**Idea:** When a user selects a seat, reserve it for 5 minutes.
 
 ```
-Usuario A                    Usuario B                   Database
+User A                       User B                      Database
    │                            │                            │
    ├─ Select A12 ──────────────────────────────────────────>│ 
    │                            │                 LOCK: UPDATE seats
@@ -73,13 +73,13 @@ Usuario A                    Usuario B                   Database
    │                            │                 ✗ LOCKED!
    │                            │              Error: "Seat already reserved"
    │                            │
-   │ (Usuario espera)           │                            │
+   │ (User waits)               │                            │
    ├─ Pay & Checkout ──────────────────────────────────────>│
    │                            │              DELETE lock
    │                            │              UPDATE A12 = sold
    │                            │                 ✓ Success
    │                            │
-   │                            │ (Retry después de 5 seg)   │
+   │                            │ (Retry after 5 sec)        │
    │                            ├─ Select C15 ─────────────>│
    │                            │              LOCK: C15 OK
    │                            │                 ✓ Success
@@ -87,9 +87,9 @@ Usuario A                    Usuario B                   Database
 
 ---
 
-## IMPLEMENTACIÓN
+## IMPLEMENTATION
 
-### Paso 1: Schema de DB
+### Step 1: DB Schema
 
 ```typescript
 // packages/api/src/infrastructure/db/schema.ts
@@ -103,27 +103,27 @@ export const seatsTable = pgTable('seats', {
   number: integer('number').notNull(),
   price: decimal('price', { precision: 10, scale: 2 }).notNull(),
 
-  // CRÍTICO: Campos para concurrencia
+  // CRITICAL: Concurrency fields
   status: text('status').default('available').notNull(),
   // 'available' | 'reserved' | 'sold' | 'blocked'
 
   reservedUntil: timestamp('reserved_until'),
-  // Fecha/hora cuando expira la reserva temporal
+  // Date/time when the temporary reservation expires
 
   reservedBy: text('reserved_by'),
-  // Usuario que tiene la reserva temporal
+  // User who holds the temporary reservation
 
   createdAt: timestamp('created_at').defaultNow(),
 });
 
-// Índice para búsqueda rápida de butacas expiradas
+// Index for fast lookup of expired seats
 export const seatsReservedUntilIdx = index('seats_reserved_until_idx')
   .on(seatsTable.reservedUntil);
 ```
 
 ---
 
-### Paso 2: SeatLock Service
+### Step 2: SeatLock Service
 
 ```typescript
 // packages/api/src/domain/seats/seat-lock.ts
@@ -133,29 +133,29 @@ import { seatsTable } from '@/infrastructure/db/schema';
 import { eq, and, isNull, lt, or } from 'drizzle-orm';
 
 /**
- * Manejo de locks temporales de butacas
- * Garantiza que dos usuarios no puedan reservar la misma butaca simultáneamente
+ * Handles temporary seat locks
+ * Ensures two users can't reserve the same seat simultaneously
  */
 export class SeatLockManager {
-  private lockDurationMs = 5 * 60 * 1000; // 5 minutos
+  private lockDurationMs = 5 * 60 * 1000; // 5 minutes
 
   /**
-   * Intentar lockear una butaca
-   * Retorna true si logró el lock, false si ya está ocupada
+   * Try to lock a seat
+   * Returns true if the lock succeeded, false if the seat is already taken
    */
   async lockSeat(seatId: string, userId: string): Promise<boolean> {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + this.lockDurationMs);
 
     try {
-      // Transacción: verificar estado + actualizar atómicamente
+      // Transaction: check state + update atomically
       const result = await db.transaction(async (tx) => {
-        // 1. Obtener estado actual de la butaca
+        // 1. Get the seat's current state
         const seat = await tx
           .select()
           .from(seatsTable)
           .where(eq(seatsTable.id, seatId))
-          .for('update'); // SELECT FOR UPDATE = lock pessimista
+          .for('update'); // SELECT FOR UPDATE = pessimistic lock
 
         if (!seat[0]) {
           throw new Error(`Seat ${seatId} not found`);
@@ -164,10 +164,10 @@ export class SeatLockManager {
         const currentStatus = seat[0].status;
         const currentReservedUntil = seat[0].reservedUntil;
 
-        // 2. Verificar si está disponible
-        // Disponible si:
-        // - Status es 'available', O
-        // - Status es 'reserved' pero ya expiró la reserva
+        // 2. Check whether it's available
+        // Available if:
+        // - Status is 'available', OR
+        // - Status is 'reserved' but the reservation already expired
         const isAvailable =
           currentStatus === 'available' ||
           (currentStatus === 'reserved' &&
@@ -175,10 +175,10 @@ export class SeatLockManager {
             currentReservedUntil < now);
 
         if (!isAvailable) {
-          return false; // Seat no disponible
+          return false; // Seat not available
         }
 
-        // 3. Actualizar a 'reserved'
+        // 3. Update to 'reserved'
         await tx
           .update(seatsTable)
           .set({
@@ -199,11 +199,11 @@ export class SeatLockManager {
   }
 
   /**
-   * Liberar un lock sin comprar
-   * (Usuario abandonó el checkout)
+   * Release a lock without buying
+   * (User abandoned checkout)
    */
   async unlockSeat(seatId: string, userId: string): Promise<void> {
-    // Solo el usuario que hizo lock puede liberarlo
+    // Only the user who locked it can release it
     await db
       .update(seatsTable)
       .set({
@@ -217,8 +217,8 @@ export class SeatLockManager {
   }
 
   /**
-   * Convertir reserva a venta
-   * (Usuario pagó exitosamente)
+   * Convert a reservation into a sale
+   * (User paid successfully)
    */
   async confirmSeat(seatId: string, userId: string): Promise<void> {
     const result = await db
@@ -241,8 +241,8 @@ export class SeatLockManager {
   }
 
   /**
-   * Limpiar locks expirados (background job)
-   * Correr cada minuto
+   * Clean up expired locks (background job)
+   * Run every minute
    */
   async cleanupExpiredLocks(): Promise<number> {
     const now = new Date();
@@ -265,8 +265,8 @@ export class SeatLockManager {
   }
 
   /**
-   * Check de disponibilidad (sin lock)
-   * Solo para lectura
+   * Availability check (no lock)
+   * Read-only
    */
   async checkAvailability(seatIds: string[]): Promise<
     Record<string, boolean>
@@ -296,7 +296,7 @@ export class SeatLockManager {
 
 ---
 
-### Paso 3: SeatService (Alto nivel)
+### Step 3: SeatService (High level)
 
 ```typescript
 // packages/api/src/domain/seats/seat.service.ts
@@ -311,20 +311,20 @@ export class SeatService {
   ) {}
 
   /**
-   * Usuario selecciona una butaca
-   * Intenta lockearla por 5 minutos
+   * User selects a seat
+   * Attempts to lock it for 5 minutes
    */
   async selectSeat(
     seatId: string,
     userId: string
   ): Promise<{ success: boolean; error?: string }> {
-    // Validar que la butaca existe
+    // Validate that the seat exists
     const seat = await this.repo.findById(seatId);
     if (!seat) {
       return { success: false, error: 'Seat not found' };
     }
 
-    // Intentar lock
+    // Try to lock
     const locked = await this.lockManager.lockSeat(seatId, userId);
 
     if (!locked) {
@@ -338,25 +338,25 @@ export class SeatService {
   }
 
   /**
-   * Usuario cancela la selección
+   * User cancels the selection
    */
   async deselectSeat(seatId: string, userId: string): Promise<void> {
     await this.lockManager.unlockSeat(seatId, userId);
   }
 
   /**
-   * Checkout confirmado
-   * Convertir lock a venta
+   * Checkout confirmed
+   * Convert lock into a sale
    */
   async confirmPurchase(seatIds: string[], userId: string): Promise<void> {
-    // Confirmar cada butaca en transacción
+    // Confirm each seat within a transaction
     for (const seatId of seatIds) {
       await this.lockManager.confirmSeat(seatId, userId);
     }
   }
 
   /**
-   * Obtener mapa de butacas disponibles
+   * Get the map of available seats
    */
   async getPerformanceSeats(performanceId: string) {
     const seats = await this.repo.findByPerformance(performanceId);
@@ -364,7 +364,7 @@ export class SeatService {
     const now = new Date();
     return seats.map((seat) => ({
       ...seat,
-      // Mostrar como "available" si la reserva expiró
+      // Show as "available" if the reservation expired
       status:
         seat.status === 'reserved' && seat.reservedUntil < now
           ? 'available'
@@ -376,7 +376,7 @@ export class SeatService {
 
 ---
 
-### Paso 4: API Routes
+### Step 4: API Routes
 
 ```typescript
 // packages/api/src/api/routes/seats.ts
@@ -386,7 +386,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 export async function seatRoutes(app: FastifyInstance) {
   /**
    * GET /performances/:performanceId/seats
-   * Obtener mapa de butacas (para renderizar)
+   * Get the seat map (for rendering)
    */
   app.get('/performances/:performanceId/seats', async (req, reply) => {
     const { performanceId } = req.params;
@@ -401,12 +401,12 @@ export async function seatRoutes(app: FastifyInstance) {
 
   /**
    * POST /seats/:seatId/select
-   * Usuario selecciona una butaca
+   * User selects a seat
    */
   app.post<{ Params: { seatId: string } }>(
     '/seats/:seatId/select',
     {
-      onRequest: [app.authenticate], // Requiere JWT
+      onRequest: [app.authenticate], // Requires JWT
     },
     async (req, reply) => {
       const { seatId } = req.params;
@@ -418,7 +418,7 @@ export async function seatRoutes(app: FastifyInstance) {
         return reply.code(409).send({
           success: false,
           error: result.error,
-          // 409 CONFLICT = el recurso cambió
+          // 409 CONFLICT = the resource changed
         });
       }
 
@@ -432,7 +432,7 @@ export async function seatRoutes(app: FastifyInstance) {
 
   /**
    * DELETE /seats/:seatId/select
-   * Usuario deselecciona una butaca
+   * User deselects a seat
    */
   app.delete<{ Params: { seatId: string } }>(
     '/seats/:seatId/select',
@@ -454,7 +454,7 @@ export async function seatRoutes(app: FastifyInstance) {
 
   /**
    * POST /seats/check-availability
-   * Verificar disponibilidad de varias butacas (sin lock)
+   * Check availability of several seats (no lock)
    */
   app.post<{ Body: { seatIds: string[] } }>(
     '/seats/check-availability',
@@ -474,7 +474,7 @@ export async function seatRoutes(app: FastifyInstance) {
 
 ---
 
-## TESTING (Lo difícil)
+## TESTING (The hard part)
 
 ### Test 1: Race Condition
 
@@ -492,38 +492,38 @@ describe('Seat Concurrency', () => {
 
   beforeEach(() => {
     lockManager = new SeatLockManager();
-    // Crear butaca en DB
+    // Create seat in DB
   });
 
   it('should prevent double booking (race condition)', async () => {
-    // Simular dos usuarios intentando comprar la misma butaca
-    // simultáneamente
+    // Simulate two users trying to buy the same seat
+    // simultaneously
 
     const [result1, result2] = await Promise.all([
       lockManager.lockSeat(seatId, userId1),
       lockManager.lockSeat(seatId, userId2),
     ]);
 
-    // Exactamente UNO debe ganar
+    // Exactly ONE must win
     expect(
       (result1 && !result2) || (!result1 && result2)
     ).toBe(true);
   });
 
   it('should allow new lock after expiration', async () => {
-    // Usuario 1 lockea por 5 minutos
+    // User 1 locks for 5 minutes
     const locked1 = await lockManager.lockSeat(seatId, userId1);
     expect(locked1).toBe(true);
 
-    // Usuario 2 intenta lockear - falla
+    // User 2 tries to lock - fails
     const locked2 = await lockManager.lockSeat(seatId, userId2);
     expect(locked2).toBe(false);
 
-    // Simular expiración (fake timer)
+    // Simulate expiration (fake timer)
     vi.useFakeTimers();
     vi.advanceTimersByTime(5 * 60 * 1000 + 1000); // 5 min + 1 sec
 
-    // Usuario 2 intenta de nuevo - ahora sí funciona
+    // User 2 tries again - now it works
     const locked3 = await lockManager.lockSeat(seatId, userId2);
     expect(locked3).toBe(true);
 
@@ -531,27 +531,27 @@ describe('Seat Concurrency', () => {
   });
 
   it('should handle concurrent checkout attempts', async () => {
-    // Simular 10 usuarios intentando comprar la misma butaca
+    // Simulate 10 users trying to buy the same seat
     const users = Array.from({ length: 10 }, (_, i) => `user_${i}`);
 
     const results = await Promise.all(
       users.map((userId) => lockManager.lockSeat(seatId, userId))
     );
 
-    // Exactamente 1 debe tener éxito
+    // Exactly 1 must succeed
     const successes = results.filter((r) => r === true);
     expect(successes).toHaveLength(1);
   });
 
   it('should fail to confirm if lock expired', async () => {
-    // Lockear
+    // Lock
     await lockManager.lockSeat(seatId, userId1);
 
-    // Esperar a que expire
+    // Wait for it to expire
     vi.useFakeTimers();
     vi.advanceTimersByTime(6 * 60 * 1000); // 6 min
 
-    // Intentar confirmar - debe fallar
+    // Try to confirm - should fail
     expect(async () => {
       await lockManager.confirmSeat(seatId, userId1);
     }).rejects.toThrow('Seat lock expired');
@@ -561,7 +561,7 @@ describe('Seat Concurrency', () => {
 });
 ```
 
-### Test 2: Integración API
+### Test 2: API Integration
 
 ```typescript
 // tests/integration/seat-api.test.ts
@@ -577,12 +577,12 @@ describe('Seat Selection API', () => {
   });
 
   it('should return 409 CONFLICT if already taken', async () => {
-    // Usuario 1 selecciona
+    // User 1 selects
     await api.post('/seats/seat_A12/select', {
       headers: { authorization: `Bearer ${token1}` },
     });
 
-    // Usuario 2 intenta seleccionar la misma
+    // User 2 tries to select the same seat
     const response = await api.post('/seats/seat_A12/select', {
       headers: { authorization: `Bearer ${token2}` },
     });
@@ -592,18 +592,18 @@ describe('Seat Selection API', () => {
   });
 
   it('should unlock on deselection', async () => {
-    // Usuario 1 selecciona
+    // User 1 selects
     await api.post('/seats/seat_A12/select', {
       headers: { authorization: `Bearer ${token1}` },
     });
 
-    // Usuario 1 deselecciona
+    // User 1 deselects
     const deselect = await api.delete('/seats/seat_A12/select', {
       headers: { authorization: `Bearer ${token1}` },
     });
     expect(deselect.status).toBe(200);
 
-    // Ahora Usuario 2 puede seleccionar
+    // Now User 2 can select it
     const select2 = await api.post('/seats/seat_A12/select', {
       headers: { authorization: `Bearer ${token2}` },
     });
@@ -614,7 +614,7 @@ describe('Seat Selection API', () => {
 
 ---
 
-## BACKGROUND JOB: Limpiar Locks Expirados
+## BACKGROUND JOB: Clean Up Expired Locks
 
 ```typescript
 // packages/api/src/infrastructure/background-jobs.ts
@@ -622,7 +622,7 @@ describe('Seat Selection API', () => {
 import { SeatLockManager } from '@/domain/seats/seat-lock';
 
 /**
- * Correr cada minuto para limpiar locks expirados
+ * Run every minute to clean up expired locks
  */
 export function setupCleanupJobs(lockManager: SeatLockManager) {
   setInterval(async () => {
@@ -634,35 +634,35 @@ export function setupCleanupJobs(lockManager: SeatLockManager) {
     } catch (error) {
       console.error('Error cleaning up expired locks:', error);
     }
-  }, 60 * 1000); // Cada minuto
+  }, 60 * 1000); // Every minute
 }
 ```
 
 ---
 
-## FLUJO COMPLETO: Compra exitosa vs fallida
+## FULL FLOW: Successful vs. Failed Purchase
 
-### ✅ Compra Exitosa
+### ✅ Successful Purchase
 
 ```
-1. Usuario selecciona A12
+1. User selects A12
    POST /seats/seat_A12/select
-   ✓ Lockea por 5 minutos
+   ✓ Locked for 5 minutes
 
-2. Usuario selecciona B15
+2. User selects B15
    POST /seats/seat_B15/select
-   ✓ Lockea por 5 minutos
+   ✓ Locked for 5 minutes
 
-3. Usuario hace checkout
+3. User checks out
    POST /orders
    body: { seatIds: ["seat_A12", "seat_B15"] }
    
    Backend:
-   - Transacción:
+   - Transaction:
      ├─ confirmSeat("A12", userId)
      ├─ confirmSeat("B15", userId)
-     └─ Crear order
-   ✓ Ambas se marcan como "sold"
+     └─ Create order
+   ✓ Both marked as "sold"
 
 4. Response:
    {
@@ -672,25 +672,25 @@ export function setupCleanupJobs(lockManager: SeatLockManager) {
    }
 ```
 
-### ❌ Compra Fallida (Lock Expirado)
+### ❌ Failed Purchase (Lock Expired)
 
 ```
-1. Usuario selecciona A12
+1. User selects A12
    POST /seats/seat_A12/select
-   ✓ Lockea por 5 minutos
+   ✓ Locked for 5 minutes
 
-2. Usuario toma café (4 minutos)
-   (Lock expira automáticamente)
+2. User takes a coffee break (4 minutes)
+   (Lock expires automatically)
 
-3. Otro usuario selecciona A12
+3. Another user selects A12
    POST /seats/seat_A12/select
-   ✓ Ahora lockea
+   ✓ Now locks it
 
-4. Usuario original intenta checkout
+4. Original user tries to check out
    POST /orders
    
    Backend:
-   - Transacción:
+   - Transaction:
      └─ confirmSeat("A12", userId)
         ✗ FAIL: "Seat lock expired or was taken"
    
@@ -707,23 +707,23 @@ export function setupCleanupJobs(lockManager: SeatLockManager) {
 
 - [ ] Schema: fields `status`, `reservedUntil`, `reservedBy`
 - [ ] SeatLockManager: `lockSeat()`, `unlockSeat()`, `confirmSeat()`
-- [ ] Transacción DB con `SELECT FOR UPDATE`
+- [ ] DB transaction with `SELECT FOR UPDATE`
 - [ ] API: POST `/seats/:id/select`, DELETE `/seats/:id/select`
-- [ ] Tests: race condition con `Promise.all()`
-- [ ] Background job: `cleanupExpiredLocks()` cada minuto
-- [ ] Frontend: mostrar contador de expiración (5 min)
-- [ ] Error handling: 409 CONFLICT cuando seat no disponible
+- [ ] Tests: race condition with `Promise.all()`
+- [ ] Background job: `cleanupExpiredLocks()` every minute
+- [ ] Frontend: show an expiration countdown (5 min)
+- [ ] Error handling: 409 CONFLICT when seat isn't available
 
 ---
 
 ## TL;DR
 
-**La clave:** No confíes en frontend. El backend tiene que:
+**The key:** Don't trust the frontend. The backend has to:
 
-1. **Verificar estado actual** antes de cada operación
-2. **Usar locks temporales** con expiración automática
-3. **Transacciones atómicas** (TODO o NADA)
-4. **Limpiar locks expirados** en background job
-5. **Retornar 409 CONFLICT** si race condition ocurre
+1. **Verify the current state** before every operation
+2. **Use temporary locks** with automatic expiration
+3. **Atomic transactions** (ALL or NOTHING)
+4. **Clean up expired locks** in a background job
+5. **Return 409 CONFLICT** if a race condition occurs
 
-**Esto es lo que diferencia un proyecto serio de uno que "casi funciona".**
+**This is what separates a serious project from one that "almost works."**
