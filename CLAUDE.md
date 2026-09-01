@@ -78,3 +78,9 @@ The root `package.json` has no `scripts` field — there is no `pnpm dev`/`pnpm 
 - The first feature that needs persistence will need to scaffold `infrastructure/db` (Drizzle client, schema, config) — it doesn't exist yet.
 - The first feature that needs env/config reads will need to scaffold `infrastructure/config` — it doesn't exist yet.
 - After adding a dependency to any package, run `pnpm install` from the repo root (not inside the package) so the hoisted root `node_modules` stays consistent.
+
+## Quick Links to Deep Dives
+- [Architecture Decisions](./docs/ticketing-architecture-decisions.md)
+- [Seat Concurrency Pattern](./docs/1-seat-concurrency-deep-dive.md)
+- [Claude Tools Implementation](./docs/2-claude-tools-implementation.md)
+- [MCP Server Setup](./docs/3-mcp-server-implementation.md)
