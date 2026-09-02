@@ -285,4 +285,42 @@ describe('SeatLockManager', () => {
     // The loser is told when the winner's hold expires.
     expect(failures[0]?.expiresAt).toEqual(successes[0]?.expiresAt);
   });
+
+  describe('checkAvailability', () => {
+    it('reports availability for a mix of seat states', async () => {
+      const now = new Date();
+      const seats: Record<string, SeatLock | null> = {
+        'seat-available': { seatId: 'seat-available', status: 'available', reservedBy: null, reservedUntil: null },
+        'seat-reserved-active': {
+          seatId: 'seat-reserved-active',
+          status: 'reserved',
+          reservedBy: 'user-2',
+          reservedUntil: new Date(now.getTime() + 60 * 1000),
+        },
+        'seat-reserved-expired': {
+          seatId: 'seat-reserved-expired',
+          status: 'reserved',
+          reservedBy: 'user-2',
+          reservedUntil: new Date(now.getTime() - 60 * 1000),
+        },
+        'seat-sold': { seatId: 'seat-sold', status: 'sold', reservedBy: null, reservedUntil: null },
+        'seat-blocked': { seatId: 'seat-blocked', status: 'blocked', reservedBy: null, reservedUntil: null },
+        'seat-ghost': null,
+      };
+
+      (repository.findById as ReturnType<typeof vi.fn>).mockImplementation(async (seatId: string) => seats[seatId] ?? null);
+
+      const result = await manager.checkAvailability(Object.keys(seats));
+
+      expect(result).toEqual({
+        'seat-available': true,
+        'seat-reserved-active': false,
+        'seat-reserved-expired': true,
+        'seat-sold': false,
+        'seat-blocked': false,
+        'seat-ghost': false,
+      });
+      expect(repository.findById).toHaveBeenCalledTimes(Object.keys(seats).length);
+    });
+  });
 });

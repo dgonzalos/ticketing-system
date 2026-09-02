@@ -90,4 +90,23 @@ export class SeatLockManager {
   async cleanupExpiredLocks(): Promise<number> {
     return this.repository.cleanupExpiredLocks(new Date());
   }
+
+  /**
+   * Checks whether each of `seatIds` is currently available to lock — either
+   * genuinely `available`, or `reserved` with an expired hold. Seats that do
+   * not exist are reported as unavailable, not thrown.
+   */
+  async checkAvailability(seatIds: string[]): Promise<Record<string, boolean>> {
+    const now = new Date();
+    const entries = await Promise.all(
+      seatIds.map(async (seatId): Promise<[string, boolean]> => {
+        const seat = await this.repository.findById(seatId);
+        const available =
+          seat !== null &&
+          (seat.status === 'available' || (seat.status === 'reserved' && (seat.reservedUntil === null || seat.reservedUntil < now)));
+        return [seatId, available];
+      })
+    );
+    return Object.fromEntries(entries);
+  }
 }
