@@ -6,11 +6,16 @@ import { seatsRoutes } from './api/routes/seats.js';
 import { SeatLockManager } from './domain/seats/seat-lock.js';
 import { db } from './infrastructure/db/client.js';
 import { DrizzleSeatRepository } from './infrastructure/db/drizzle-seat.repository.js';
+import { runMigrations } from './infrastructure/db/migrate.js';
+
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is required');
 }
+
+// Run migrations before starting server
+await runMigrations();
 
 const app = Fastify({
   logger: true
