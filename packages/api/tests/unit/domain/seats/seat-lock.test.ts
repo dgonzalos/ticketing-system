@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SeatLockOwnershipError, SeatNotFoundError } from '../../../../src/domain/common/errors/domain-errors.js';
 import { SeatLockManager } from '../../../../src/domain/seats/seat-lock.js';
-import type { ISeatRepository, SeatLock } from '../../../../src/domain/seats/seat.repository.js';
+import type { ISeatRepository, SeatDetails, SeatLock } from '../../../../src/domain/seats/seat.repository.js';
 
 const LOCK_DURATION_MS = 5 * 60 * 1000;
 
 function createMockRepository(): ISeatRepository {
   return {
     findById: vi.fn(),
+    listByPerformance: vi.fn(),
     lockSeat: vi.fn(),
     unlockSeat: vi.fn(),
     confirmSeat: vi.fn(),
@@ -284,6 +285,77 @@ describe('SeatLockManager', () => {
     expect(failures).toHaveLength(1);
     // The loser is told when the winner's hold expires.
     expect(failures[0]?.expiresAt).toEqual(successes[0]?.expiresAt);
+  });
+
+  describe('listSeats', () => {
+    it('passes non-reserved seats through unchanged', async () => {
+      const seats: SeatDetails[] = [
+        {
+          seatId: 'seat-A12',
+          performanceId: 'perf-1',
+          row: 'A',
+          number: 12,
+          zone: 'premium',
+          price: 5000,
+          status: 'available',
+          reservedBy: null,
+          reservedUntil: null,
+        },
+      ];
+      (repository.listByPerformance as ReturnType<typeof vi.fn>).mockResolvedValueOnce(seats);
+
+      const result = await manager.listSeats('perf-1');
+
+      expect(result).toEqual(seats);
+      expect(repository.listByPerformance).toHaveBeenCalledWith('perf-1');
+    });
+
+    it('keeps a seat reserved when its hold has not expired yet', async () => {
+      const reservedUntil = new Date(Date.now() + 60 * 1000);
+      const seat: SeatDetails = {
+        seatId: 'seat-A12',
+        performanceId: 'perf-1',
+        row: 'A',
+        number: 12,
+        zone: 'premium',
+        price: 5000,
+        status: 'reserved',
+        reservedBy: 'user-1',
+        reservedUntil,
+      };
+      (repository.listByPerformance as ReturnType<typeof vi.fn>).mockResolvedValueOnce([seat]);
+
+      const result = await manager.listSeats('perf-1');
+
+      expect(result).toEqual([seat]);
+    });
+
+    it('presents a seat with an expired hold as available, without a repository write', async () => {
+      /**
+       * Nothing has called lockSeat/confirmSeat/cleanupExpiredLocks on this
+       * seat since its 5-minute hold passed, so the repository still has it
+       * as 'reserved'. listSeats must not surface that stale status — a
+       * caller should see it as lockable, matching what checkAvailability
+       * and lockSeat would actually allow.
+       */
+      const seat: SeatDetails = {
+        seatId: 'seat-A12',
+        performanceId: 'perf-1',
+        row: 'A',
+        number: 12,
+        zone: 'premium',
+        price: 5000,
+        status: 'reserved',
+        reservedBy: 'user-1',
+        reservedUntil: new Date(Date.now() - 60 * 1000),
+      };
+      (repository.listByPerformance as ReturnType<typeof vi.fn>).mockResolvedValueOnce([seat]);
+
+      const result = await manager.listSeats('perf-1');
+
+      expect(result).toEqual([{ ...seat, status: 'available', reservedBy: null, reservedUntil: null }]);
+      expect(repository.cleanupExpiredLocks).not.toHaveBeenCalled();
+    });
   });
 
   describe('checkAvailability', () => {

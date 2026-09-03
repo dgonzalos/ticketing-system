@@ -23,7 +23,7 @@ export async function runMigrations() {
     console.log('Running database migrations...');
     
     await migrate(db, {
-      migrationsFolder: path.join(__dirname, '../../drizzle/migrations'),
+      migrationsFolder: path.join(__dirname, '../../../drizzle/migrations'),
     });
     
     console.log('✅ Migrations completed successfully');

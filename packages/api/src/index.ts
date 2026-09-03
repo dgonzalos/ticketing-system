@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
 import fastifyJwt from '@fastify/jwt';
+import { authRoutes } from './api/routes/auth.js';
 import { seatsRoutes } from './api/routes/seats.js';
 import { SeatLockManager } from './domain/seats/seat-lock.js';
 import { db } from './infrastructure/db/client.js';
@@ -58,6 +59,13 @@ const seatLockManager = new SeatLockManager(seatRepository);
 
 // Routes
 await app.register(seatsRoutes, { seatLockManager });
+
+// Dev-only: mints JWTs for any userId with no credential check. Fail-closed
+// opt-in (not a NODE_ENV!=='production' check) so a deployment that simply
+// forgets to set NODE_ENV doesn't silently ship this to production.
+if (process.env.ENABLE_DEV_AUTH_ROUTES === 'true') {
+  await app.register(authRoutes);
+}
 
 // Health check
 app.get('/health', async (request, reply) => {

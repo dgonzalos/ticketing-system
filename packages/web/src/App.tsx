@@ -1,14 +1,66 @@
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
-import './App.module.css';
+import { SeatMap } from './components/Seats/index.js';
+import { useDevAuth } from './hooks/useDevAuth.js';
+import { useSeatSelection } from './hooks/useSeatSelection.js';
+import styles from './App.module.css';
 
-/**
- * Main App component.
- * 
- * Wraps the application with TanStack Query provider for data fetching.
- * Currently a simple placeholder — components will be added incrementally.
- */
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: 2, staleTime: 5 * 60 * 1000 },
+  },
+});
 
-const queryClient = new QueryClient();
+// Placeholders until a performances domain and real login exist.
+const PERFORMANCE_ID = 'perf-1';
+const DEV_USER_ID = 'dev-user';
+
+function SeatSelectionScreen() {
+  const { token, error: authError } = useDevAuth(DEV_USER_ID);
+  const {
+    seats,
+    selectedSeatIds,
+    totalPrice,
+    isSeatsLoading,
+    seatsError,
+    selectError,
+    confirmError,
+    onSeatSelect,
+    confirmSelection,
+    clearSelection,
+  } = useSeatSelection({ performanceId: PERFORMANCE_ID, token });
+
+  if (authError) {
+    return <p className={styles.error}>Failed to authenticate: {authError.message}</p>;
+  }
+
+  if (isSeatsLoading || !token) {
+    return <p className={styles.loading}>Loading seats…</p>;
+  }
+
+  if (seatsError) {
+    return <p className={styles.error}>Failed to load seats: {(seatsError as Error).message}</p>;
+  }
+
+  return (
+    <div className={styles.layout}>
+      <SeatMap seats={seats} selectedSeatIds={selectedSeatIds} onSeatSelect={onSeatSelect} />
+
+      <aside className={styles.summary}>
+        <h2>Your selection</h2>
+        <p>{selectedSeatIds.length} seat(s) selected</p>
+        <p className={styles.total}>${(totalPrice / 100).toFixed(2)}</p>
+        {selectError && <p className={styles.error}>{(selectError as Error).message}</p>}
+        {confirmError && <p className={styles.error}>{confirmError.message}</p>}
+        <button type="button" disabled={selectedSeatIds.length === 0} onClick={() => void confirmSelection()}>
+          Confirm purchase
+        </button>
+        <button type="button" disabled={selectedSeatIds.length === 0} onClick={clearSelection}>
+          Clear selection
+        </button>
+      </aside>
+    </div>
+  );
+}
 
 export default function App() {
   return (
@@ -18,15 +70,9 @@ export default function App() {
           <h1>Ticketing System</h1>
         </header>
         <main className={styles.main}>
-          <p>Welcome to the ticketing system</p>
+          <SeatSelectionScreen />
         </main>
       </div>
     </QueryClientProvider>
   );
 }
-
-const styles = {
-  app: 'app',
-  header: 'header',
-  main: 'main'
-};

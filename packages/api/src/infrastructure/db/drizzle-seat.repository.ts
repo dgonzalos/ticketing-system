@@ -3,6 +3,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type {
   ISeatRepository,
   SeatConfirmResult,
+  SeatDetails,
   SeatLock,
   SeatLockAttempt,
   SeatReleaseResult,
@@ -15,6 +16,20 @@ type SeatRow = typeof schema.seatsTable.$inferSelect;
 function toSeatLock(row: SeatRow): SeatLock {
   return {
     seatId: row.id,
+    status: row.status as SeatStatus,
+    reservedBy: row.reservedBy,
+    reservedUntil: row.reservedUntil,
+  };
+}
+
+function toSeatDetails(row: SeatRow): SeatDetails {
+  return {
+    seatId: row.id,
+    performanceId: row.performanceId,
+    row: row.row,
+    number: row.number,
+    zone: row.zone,
+    price: row.price,
     status: row.status as SeatStatus,
     reservedBy: row.reservedBy,
     reservedUntil: row.reservedUntil,
@@ -38,6 +53,14 @@ export class DrizzleSeatRepository implements ISeatRepository {
   async findById(seatId: string): Promise<SeatLock | null> {
     const rows = await this.db.select().from(schema.seatsTable).where(eq(schema.seatsTable.id, seatId));
     return rows[0] ? toSeatLock(rows[0]) : null;
+  }
+
+  async listByPerformance(performanceId: string): Promise<SeatDetails[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.seatsTable)
+      .where(eq(schema.seatsTable.performanceId, performanceId));
+    return rows.map(toSeatDetails);
   }
 
   async lockSeat(seatId: string, userId: string, expiresAt: Date): Promise<SeatLockAttempt> {

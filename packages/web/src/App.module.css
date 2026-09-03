@@ -19,3 +19,48 @@
   flex: 1;
   padding: 2rem;
 }
+
+.layout {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.summary {
+  min-width: 220px;
+  padding: 1.25rem;
+  border: 1px solid #ddd;
+  border-radius: 0.5rem;
+  background-color: #fff;
+}
+
+.summary h2 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.1rem;
+}
+
+.summary button {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+.summary button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.total {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.loading {
+  color: #666;
+}
+
+.error {
+  color: #c62828;
+}

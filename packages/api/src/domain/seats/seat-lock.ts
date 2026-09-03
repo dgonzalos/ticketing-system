@@ -1,7 +1,12 @@
 import { SeatLockOwnershipError, SeatNotFoundError } from '../common/errors/domain-errors.js';
-import type { ISeatRepository } from './seat.repository.js';
+import type { ISeatRepository, SeatDetails } from './seat.repository.js';
 
-export type { SeatLock, SeatStatus } from './seat.repository.js';
+export type { SeatDetails, SeatLock, SeatStatus } from './seat.repository.js';
+
+/** Whether `seat`'s reservation is still `reserved` and has not passed its `reservedUntil`. */
+function isActivelyReserved(seat: { status: SeatDetails['status']; reservedUntil: Date | null }, now: Date): boolean {
+  return seat.status === 'reserved' && seat.reservedUntil !== null && seat.reservedUntil >= now;
+}
 
 /**
  * Orchestrates temporary seat reservations to prevent double-booking.
@@ -92,6 +97,26 @@ export class SeatLockManager {
   }
 
   /**
+   * Lists every seat belonging to `performanceId`, for rendering a seat map.
+   *
+   * A seat whose hold has passed `reservedUntil` but hasn't since been
+   * touched by `lockSeat`/`confirmSeat`/`cleanupExpiredLocks` is presented
+   * as `available` here (status, `reservedBy`, and `reservedUntil` all
+   * reset in the returned value, not written back to storage) — matching
+   * what `checkAvailability`/`lockSeat` would actually allow, so the seat
+   * map doesn't show a seat as taken when a caller could lock it right now.
+   */
+  async listSeats(performanceId: string): Promise<SeatDetails[]> {
+    const seats = await this.repository.listByPerformance(performanceId);
+    const now = new Date();
+    return seats.map((seat) =>
+      seat.status === 'reserved' && !isActivelyReserved(seat, now)
+        ? { ...seat, status: 'available', reservedBy: null, reservedUntil: null }
+        : seat
+    );
+  }
+
+  /**
    * Checks whether each of `seatIds` is currently available to lock — either
    * genuinely `available`, or `reserved` with an expired hold. Seats that do
    * not exist are reported as unavailable, not thrown.
@@ -101,9 +126,7 @@ export class SeatLockManager {
     const entries = await Promise.all(
       seatIds.map(async (seatId): Promise<[string, boolean]> => {
         const seat = await this.repository.findById(seatId);
-        const available =
-          seat !== null &&
-          (seat.status === 'available' || (seat.status === 'reserved' && (seat.reservedUntil === null || seat.reservedUntil < now)));
+        const available = seat !== null && (seat.status === 'available' || (seat.status === 'reserved' && !isActivelyReserved(seat, now)));
         return [seatId, available];
       })
     );

@@ -9,6 +9,20 @@ export interface SeatLock {
   reservedUntil: Date | null;
 }
 
+/** Full seat record for display purposes (e.g. rendering a seat map). */
+export interface SeatDetails {
+  seatId: string;
+  performanceId: string;
+  row: string;
+  number: number;
+  zone: string;
+  /** Price in cents. */
+  price: number;
+  status: SeatStatus;
+  reservedBy: string | null;
+  reservedUntil: Date | null;
+}
+
 /** Result of attempting to reserve a seat. */
 export interface SeatLockAttempt {
   locked: boolean;
@@ -41,6 +55,9 @@ export interface SeatConfirmResult {
 export interface ISeatRepository {
   /** Reads the current state of a seat, or null if it does not exist. */
   findById(seatId: string): Promise<SeatLock | null>;
+
+  /** Reads every seat belonging to `performanceId`, for rendering a seat map. */
+  listByPerformance(performanceId: string): Promise<SeatDetails[]>;
 
   /**
    * Atomically reserves a seat for `userId` until `expiresAt`, iff the seat

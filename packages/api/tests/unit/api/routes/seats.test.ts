@@ -10,6 +10,7 @@ const JWT_SECRET = 'test-secret';
 
 function createMockSeatLockManager(): SeatLockManager {
   return {
+    listSeats: vi.fn(),
     lockSeat: vi.fn(),
     unlockSeat: vi.fn(),
     confirmSeat: vi.fn(),
@@ -88,6 +89,51 @@ describe('seats routes', () => {
 
       expect(response.statusCode).toBe(200);
       expect(seatLockManager.lockSeat).toHaveBeenCalledWith('seat-A12', 'user-1');
+    });
+  });
+
+  describe('GET /seats', () => {
+    it('returns 200 with the seat list, serializing reservedUntil as ISO and omitting reservedBy', async () => {
+      const reservedUntil = new Date('2026-01-01T00:05:00.000Z');
+      (seatLockManager.listSeats as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+        {
+          seatId: 'seat-A12',
+          performanceId: 'perf-1',
+          row: 'A',
+          number: 12,
+          zone: 'premium',
+          price: 5000,
+          status: 'reserved',
+          reservedBy: 'user-1',
+          reservedUntil,
+        },
+      ]);
+
+      const response = await app.inject({ method: 'GET', url: '/seats?performanceId=perf-1' });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual([
+        {
+          seatId: 'seat-A12',
+          performanceId: 'perf-1',
+          row: 'A',
+          number: 12,
+          zone: 'premium',
+          price: 5000,
+          status: 'reserved',
+          reservedUntil: reservedUntil.toISOString(),
+        },
+      ]);
+      // reservedBy must never reach an unauthenticated caller.
+      expect(response.json()[0]).not.toHaveProperty('reservedBy');
+      expect(seatLockManager.listSeats).toHaveBeenCalledWith('perf-1');
+    });
+
+    it('returns 400 when performanceId is missing, without calling listSeats', async () => {
+      const response = await app.inject({ method: 'GET', url: '/seats' });
+
+      expect(response.statusCode).toBe(400);
+      expect(seatLockManager.listSeats).not.toHaveBeenCalled();
     });
   });
 
@@ -181,6 +227,54 @@ describe('seats routes', () => {
       });
 
       expect(response.statusCode).toBe(403);
+    });
+  });
+
+  describe('POST /seats/:seatId/confirm', () => {
+    it('returns 200 on success', async () => {
+      (seatLockManager.confirmSeat as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/seats/seat-A12/confirm',
+        headers: authHeader('user-1'),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ success: true });
+      expect(seatLockManager.confirmSeat).toHaveBeenCalledWith('seat-A12', 'user-1');
+    });
+
+    it('returns 404 when the seat does not exist', async () => {
+      (seatLockManager.confirmSeat as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new SeatNotFoundError('seat-ghost'));
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/seats/seat-ghost/confirm',
+        headers: authHeader(),
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+
+    it('returns 403 when the seat is not validly held by the caller', async () => {
+      (seatLockManager.confirmSeat as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new SeatLockOwnershipError('seat-A12', 'user-1')
+      );
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/seats/seat-A12/confirm',
+        headers: authHeader(),
+      });
+
+      expect(response.statusCode).toBe(403);
+    });
+
+    it('returns 401 with no Authorization header', async () => {
+      const response = await app.inject({ method: 'POST', url: '/seats/seat-A12/confirm' });
+      expect(response.statusCode).toBe(401);
+      expect(seatLockManager.confirmSeat).not.toHaveBeenCalled();
     });
   });
 
