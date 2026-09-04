@@ -12,7 +12,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Package manager**: pnpm workspaces, pinned to `pnpm@11.25.0` via the root `packageManager` field. `pnpm-workspace.yaml` sets `nodeLinker: hoisted`, so there is a single flat `node_modules` at the repo root — do not reintroduce `isolated` mode, it fragments installs into a `node_modules` per package.
 - **API** (`packages/api`): Fastify 4, `@fastify/helmet`, `@fastify/cors`, Zod for validation, `pg` + `drizzle-orm` for PostgreSQL. No Drizzle schema/config or migrations exist yet.
 - **Dev/test tooling** (`packages/api`): `tsx` for dev watch mode, `vitest`/`@vitest/ui` for tests — no test files are committed yet.
-- **Web** (`packages/web`) and **Shared** (`packages/shared`): registered as pnpm workspace packages but currently empty — no dependencies or source. `packages/web` is intended to become a React 18 frontend.
+- **Web** (`packages/web`): React 18 + Vite frontend. Styling is plain CSS Modules — no Tailwind, Sass, PostCSS, or CSS-in-JS. Colors/spacing/typography are provided by a design-token system rather than hardcoded per component — see "Styling and design tokens" below. Data fetching via TanStack Query.
+- **Shared** (`packages/shared`): cross-package TypeScript types only, no build step — consumed exclusively via `import type` so both `tsc` (api) and Vite/esbuild (web) erase it at compile time. Do not add runtime values here without adding a real build step.
 - **Claude API**: part of the intended stack but not yet integrated anywhere in the codebase — no Anthropic SDK dependency exists in any package yet.
 
 ## Repository structure
@@ -32,8 +33,8 @@ packages/
         config/              env/config loading (not scaffolded yet)
     tests/
       unit/, integration/    empty, vitest is configured but unused
-  shared/         @ticketing-system/shared — empty, for cross-package types/utilities
-  web/            @ticketing-system/web — empty, intended React 18 frontend
+  shared/         @ticketing-system/shared — types-only cross-package contracts (no build step)
+  web/            @ticketing-system/web — React 18 + Vite frontend, CSS Modules + design tokens
 ```
 
 Note the package name inconsistency: `packages/api` is scoped `@ticketing/api`, while `shared` and `web` use `@ticketing-system/*`. Match whichever scope you're extending rather than "fixing" it unprompted.
@@ -47,6 +48,17 @@ The API follows a layered, DDD-influenced convention:
 - `infrastructure` — everything that talks to the outside world: `db` (Drizzle/Postgres), `config` (env loading). Implements interfaces the domain layer depends on, not the other way around.
 
 Since none of this is populated yet, treat it as the target shape when adding the first real feature rather than an existing pattern to copy from example code.
+
+## Styling and design tokens (`packages/web`)
+
+Colors, spacing, and typography come from a three-tier design-token system under `packages/web/src/styles/`, not hardcoded values in component stylesheets. There is no Figma/design file to source from, so the color primitives come from `@radix-ui/colors` (pre-built, accessibility-checked 12-step scales with matched light/dark pairs) instead of hand-picked hex values — reuse this pattern for any future palette need rather than picking new hex values ad hoc.
+
+- `primitives/colors.css` — pure `@import` of Radix scale files (slate, blue, red, green, amber; light + dark). The only file allowed to reference a Radix primitive directly.
+- `primitives/spacing.css`, `typography.css`, `radius.css` — raw numeric scales (`--space-*`, `--font-size-*`, `--font-weight-*`, `--radius-*`), captured from values already in use rather than a speculative grid.
+- `semantic.css` — purpose-named tokens (`--color-bg-canvas`, `--color-text-primary`, `--color-danger-text`, etc.) plus seat-status aliases (`--color-seat-{available,reserved,sold,blocked,selected}-*`). Components must consume semantic tokens only — never a Radix primitive or a raw hex/rgb/hsl value.
+- `index.css` is the single entry point, imported once from `src/index.tsx`.
+- Dark mode is a single `.dark` class on `<html>` (matches Radix's own convention, not a `data-theme` attribute). `styles/theme.ts` exports `setTheme('light' | 'dark')`; no UI toggle is wired up yet.
+- `pnpm --filter @ticketing/web check:no-raw-colors` (also runs automatically via `pretest`) fails if a hex/rgb/hsl/oklch color literal appears anywhere in `src/**/*.css` — add or reuse a semantic token instead.
 
 ## Development conventions
 
@@ -78,6 +90,7 @@ The root `package.json` has no `scripts` field — there is no `pnpm dev`/`pnpm 
 - The first feature that needs persistence will need to scaffold `infrastructure/db` (Drizzle client, schema, config) — it doesn't exist yet.
 - The first feature that needs env/config reads will need to scaffold `infrastructure/config` — it doesn't exist yet.
 - After adding a dependency to any package, run `pnpm install` from the repo root (not inside the package) so the hoisted root `node_modules` stays consistent.
+- New colors in `packages/web`: extend `primitives/colors.css` with another Radix scale, or map a new semantic token in `semantic.css` to an existing one. Never hardcode a hex/rgb/hsl value in a `.module.css` file — see "Styling and design tokens" above.
 
 ## Quick Links to Deep Dives
 - [Architecture Decisions](./docs/ticketing-architecture-decisions.md)

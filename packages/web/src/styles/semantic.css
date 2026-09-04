@@ -1,0 +1,44 @@
+:root {
+  --color-bg-canvas: var(--slate-1);
+  --color-bg-surface: var(--slate-2);
+  --color-border-default: var(--slate-7);
+  --color-text-primary: var(--slate-12);
+  --color-text-secondary: var(--slate-11);
+  --color-text-disabled: var(--slate-9);
+
+  --color-accent-solid: var(--blue-9);
+  --color-accent-solid-hover: var(--blue-10);
+  --color-accent-border: var(--blue-7);
+  --color-focus-ring: var(--blue-a5);
+
+  --color-danger-bg: var(--red-3);
+  --color-danger-border: var(--red-7);
+  --color-danger-text: var(--red-11);
+  --color-success-bg: var(--green-3);
+  --color-success-border: var(--green-7);
+  --color-success-text: var(--green-11);
+  --color-warning-bg: var(--amber-3);
+  --color-warning-border: var(--amber-7);
+  --color-warning-text: var(--amber-11);
+
+  /* seat-status aliases, not new colors */
+  --color-seat-available-bg: var(--color-success-bg);
+  --color-seat-available-border: var(--color-success-border);
+  --color-seat-available-text: var(--color-success-text);
+  --color-seat-reserved-bg: var(--color-warning-bg);
+  --color-seat-reserved-border: var(--color-warning-border);
+  --color-seat-reserved-text: var(--color-warning-text);
+  --color-seat-sold-bg: var(--slate-3);
+  --color-seat-sold-border: var(--slate-7);
+  --color-seat-sold-text: var(--slate-11);
+  --color-seat-blocked-bg: var(--slate-2);
+  --color-seat-blocked-border: var(--slate-6);
+  --color-seat-blocked-text: var(--color-text-disabled);
+  --color-seat-selected-border: var(--color-accent-solid);
+  --color-seat-selected-glow: var(--blue-a5);
+}
+
+/* Radix's dark files redefine what --slate-N/--blue-N etc. *are* once .dark
+   is present, so every var(--slate-N) reference above already resolves to
+   the dark value automatically — no restatement needed. Add a token here
+   only when its dark-mode step should diverge from the light-mode one. */

@@ -1,0 +1,6 @@
+@import './reset.css';
+@import './primitives/colors.css';
+@import './primitives/spacing.css';
+@import './primitives/typography.css';
+@import './primitives/radius.css';
+@import './semantic.css';

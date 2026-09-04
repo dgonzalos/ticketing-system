@@ -3,12 +3,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.15rem;
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 0.375rem;
+  gap: var(--space-1);
+  width: var(--space-9);
+  height: var(--space-9);
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
-  font-size: 0.7rem;
+  font-size: var(--font-size-2);
   cursor: pointer;
   transition: transform 0.1s ease, background-color 0.15s ease;
 }
@@ -22,39 +22,39 @@
 }
 
 .label {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .price {
-  font-size: 0.6rem;
+  font-size: var(--font-size-1);
   opacity: 0.8;
 }
 
 .available {
-  background-color: #e8f5e9;
-  border-color: #66bb6a;
-  color: #2e7d32;
+  background-color: var(--color-seat-available-bg);
+  border-color: var(--color-seat-available-border);
+  color: var(--color-seat-available-text);
 }
 
 .reserved {
-  background-color: #fff8e1;
-  border-color: #ffca28;
-  color: #f57f17;
+  background-color: var(--color-seat-reserved-bg);
+  border-color: var(--color-seat-reserved-border);
+  color: var(--color-seat-reserved-text);
 }
 
 .sold {
-  background-color: #eceff1;
-  border-color: #b0bec5;
-  color: #607d8b;
+  background-color: var(--color-seat-sold-bg);
+  border-color: var(--color-seat-sold-border);
+  color: var(--color-seat-sold-text);
 }
 
 .blocked {
-  background-color: #fafafa;
-  border-color: #e0e0e0;
-  color: #bdbdbd;
+  background-color: var(--color-seat-blocked-bg);
+  border-color: var(--color-seat-blocked-border);
+  color: var(--color-seat-blocked-text);
 }
 
 .selected {
-  border-color: #1e88e5;
-  box-shadow: 0 0 0 2px rgba(30, 136, 229, 0.4);
+  border-color: var(--color-seat-selected-border);
+  box-shadow: 0 0 0 2px var(--color-seat-selected-glow);
 }
