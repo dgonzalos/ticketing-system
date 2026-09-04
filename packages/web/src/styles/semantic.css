@@ -10,10 +10,13 @@
   --color-accent-solid-hover: var(--blue-10);
   --color-accent-border: var(--blue-7);
   --color-focus-ring: var(--blue-a5);
+  --color-text-on-accent: var(--white-a12);
 
   --color-danger-bg: var(--red-3);
   --color-danger-border: var(--red-7);
   --color-danger-text: var(--red-11);
+  --color-danger-solid: var(--red-9);
+  --color-danger-solid-hover: var(--red-10);
   --color-success-bg: var(--green-3);
   --color-success-border: var(--green-7);
   --color-success-text: var(--green-11);

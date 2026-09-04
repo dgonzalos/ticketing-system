@@ -60,6 +60,12 @@ Colors, spacing, and typography come from a three-tier design-token system under
 - Dark mode is a single `.dark` class on `<html>` (matches Radix's own convention, not a `data-theme` attribute). `styles/theme.ts` exports `setTheme('light' | 'dark')`; no UI toggle is wired up yet.
 - `pnpm --filter @ticketing/web check:no-raw-colors` (also runs automatically via `pretest`) fails if a hex/rgb/hsl/oklch color literal appears anywhere in `src/**/*.css` — add or reuse a semantic token instead.
 
+## UI primitives (`packages/web/src/components/ui`)
+
+Shared, reusable components live flat in this folder — currently `Button`, `Card`, `Input`, re-exported from its `index.ts`. They consume semantic tokens only (see above) and use `clsx` (a real dependency of `packages/web`) to compose variant class names — the pattern to extend, not the hand-rolled template-string concatenation predating it (e.g. in `SeatCard`).
+
+**Whenever a new view/screen is added, check first whether it can reuse an existing primitive from this folder before writing view-specific styling for a button, card, form field, status badge, or similar generic element.** If the element is generic and plausibly reusable, extend or add to `components/ui` rather than styling it inline for that one screen — even if only one call site exists today (`Input` was added this way, ahead of any consumer, because a text-input primitive was clearly going to be needed). If it's genuinely specific to one feature (e.g. `SeatCard`'s seat-status coloring), keep it local to that feature's own folder instead of forcing it into a generic primitive API.
+
 ## Development conventions
 
 - ESM everywhere — no CommonJS (`require`) in `packages/api/src`.

@@ -1,5 +1,6 @@
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { SeatMap } from './components/Seats/index.js';
+import { Button, Card } from './components/ui/index.js';
 import { useDevAuth } from './hooks/useDevAuth.js';
 import { useSeatSelection } from './hooks/useSeatSelection.js';
 import styles from './App.module.css';
@@ -45,19 +46,30 @@ function SeatSelectionScreen() {
     <div className={styles.layout}>
       <SeatMap seats={seats} selectedSeatIds={selectedSeatIds} onSeatSelect={onSeatSelect} />
 
-      <aside className={styles.summary}>
+      <Card as="aside" className={styles.summary}>
         <h2>Your selection</h2>
         <p>{selectedSeatIds.length} seat(s) selected</p>
         <p className={styles.total}>${(totalPrice / 100).toFixed(2)}</p>
         {selectError && <p className={styles.error}>{(selectError as Error).message}</p>}
         {confirmError && <p className={styles.error}>{confirmError.message}</p>}
-        <button type="button" disabled={selectedSeatIds.length === 0} onClick={() => void confirmSelection()}>
+        <Button
+          className={styles.summaryButton}
+          fullWidth
+          disabled={selectedSeatIds.length === 0}
+          onClick={() => void confirmSelection()}
+        >
           Confirm purchase
-        </button>
-        <button type="button" disabled={selectedSeatIds.length === 0} onClick={clearSelection}>
+        </Button>
+        <Button
+          className={styles.summaryButton}
+          fullWidth
+          variant="secondary"
+          disabled={selectedSeatIds.length === 0}
+          onClick={clearSelection}
+        >
           Clear selection
-        </button>
-      </aside>
+        </Button>
+      </Card>
     </div>
   );
 }

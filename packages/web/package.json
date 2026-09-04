@@ -15,6 +15,7 @@
     "@tanstack/react-query": "^5.0.0",
     "@ticketing-system/shared": "workspace:*",
     "axios": "^1.6.0",
+    "clsx": "^2.1.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.0"

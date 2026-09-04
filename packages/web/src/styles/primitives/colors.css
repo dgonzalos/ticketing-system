@@ -15,3 +15,6 @@
 @import '@radix-ui/colors/green-dark.css';
 @import '@radix-ui/colors/amber.css';
 @import '@radix-ui/colors/amber-dark.css';
+
+/* Text-on-solid (buttons on an accent/danger solid background) */
+@import '@radix-ui/colors/white-alpha.css';
