@@ -22,3 +22,10 @@ export class SeatLockOwnershipError extends DomainError {
     super(`Seat lock expired or was taken by another user: ${seatId}`);
   }
 }
+
+/** Thrown when an operation targets an event that does not exist. */
+export class EventNotFoundError extends DomainError {
+  constructor(public readonly eventId: string) {
+    super(`Event not found: ${eventId}`);
+  }
+}

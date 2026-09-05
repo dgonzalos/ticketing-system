@@ -28,3 +28,30 @@ export interface SeatDetailsDto {
   /** ISO 8601 timestamp, or null if not currently reserved. */
   reservedUntil: string | null;
 }
+
+/**
+ * Wire shape of an event as returned by the API's `GET /events` (see
+ * `packages/api/src/api/routes/events.ts`).
+ */
+export interface EventDto {
+  eventId: string;
+  title: string;
+  description: string | null;
+  imageUrl: string | null;
+}
+
+/**
+ * Wire shape of a performance as returned by the API's
+ * `GET /events/:eventId/performances`.
+ */
+export interface PerformanceDto {
+  performanceId: string;
+  eventId: string;
+  /** Calendar date, e.g. `'2026-03-14'`. */
+  date: string;
+  /** Start time of day, e.g. `'19:30:00'`. */
+  time: string;
+  venue: string;
+  city: string;
+  capacity: number;
+}

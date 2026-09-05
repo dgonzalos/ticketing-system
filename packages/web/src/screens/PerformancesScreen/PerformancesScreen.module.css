@@ -1,0 +1,14 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.loading,
+.error {
+  color: var(--color-text-secondary);
+}
+
+.error {
+  color: var(--color-danger-text);
+}

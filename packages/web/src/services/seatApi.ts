@@ -1,20 +1,10 @@
 import type { SeatDetailsDto } from '@ticketing-system/shared';
 import type { Seat } from '../components/Seats/types';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import { API_BASE, parseErrorMessage } from './http';
 
 function toSeat(dto: SeatDetailsDto): Seat {
   const { seatId, ...rest } = dto;
   return { id: seatId, ...rest };
-}
-
-async function parseErrorMessage(response: Response, fallback: string): Promise<string> {
-  try {
-    const body = await response.json();
-    return typeof body?.error === 'string' ? body.error : fallback;
-  } catch {
-    return fallback;
-  }
 }
 
 /** Lists every seat belonging to a performance. Public — no auth required. */

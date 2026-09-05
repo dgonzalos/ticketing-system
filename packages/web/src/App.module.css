@@ -21,35 +21,3 @@
   flex: 1;
   padding: var(--space-8);
 }
-
-.layout {
-  display: flex;
-  gap: var(--space-8);
-  align-items: flex-start;
-}
-
-.summary {
-  min-width: 220px;
-}
-
-.summary h2 {
-  margin: 0 0 var(--space-4) 0;
-  font-size: var(--font-size-3);
-}
-
-.summaryButton {
-  margin-top: var(--space-3);
-}
-
-.total {
-  font-size: var(--font-size-4);
-  font-weight: var(--font-weight-semibold);
-}
-
-.loading {
-  color: var(--color-text-secondary);
-}
-
-.error {
-  color: var(--color-danger-text);
-}

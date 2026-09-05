@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { check, index, integer, pgEnum, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { performancesTable } from './performances.js';
 
 /**
  * Lifecycle state of a seat.
@@ -42,11 +43,10 @@ export const seatsTable = pgTable(
     /** Stable seat identifier, e.g. `'seat-A12'`. Not a surrogate key. */
     id: text('id').primaryKey(),
 
-    /**
-     * The performance this seat belongs to. Will become a foreign key once
-     * the `performances` table exists; stored as plain text for now.
-     */
-    performanceId: text('performance_id').notNull(),
+    /** The performance this seat belongs to. */
+    performanceId: text('performance_id')
+      .notNull()
+      .references(() => performancesTable.id),
 
     /** Row label within the venue, e.g. `'A'`, `'B'`. */
     row: text('row').notNull(),

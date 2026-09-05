@@ -3,9 +3,12 @@ import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
 import fastifyJwt from '@fastify/jwt';
 import { authRoutes } from './api/routes/auth.js';
+import { eventsRoutes } from './api/routes/events.js';
 import { seatsRoutes } from './api/routes/seats.js';
+import { EventCatalog } from './domain/events/event-catalog.js';
 import { SeatLockManager } from './domain/seats/seat-lock.js';
 import { db } from './infrastructure/db/client.js';
+import { DrizzleEventRepository } from './infrastructure/db/drizzle-event.repository.js';
 import { DrizzleSeatRepository } from './infrastructure/db/drizzle-seat.repository.js';
 import { runMigrations } from './infrastructure/db/migrate.js';
 
@@ -56,9 +59,12 @@ app.decorate('authenticate', async function (request, reply) {
 // Domain wiring
 const seatRepository = new DrizzleSeatRepository(db);
 const seatLockManager = new SeatLockManager(seatRepository);
+const eventRepository = new DrizzleEventRepository(db);
+const eventCatalog = new EventCatalog(eventRepository);
 
 // Routes
 await app.register(seatsRoutes, { seatLockManager });
+await app.register(eventsRoutes, { eventCatalog });
 
 // Dev-only: mints JWTs for any userId with no credential check. Fail-closed
 // opt-in (not a NODE_ENV!=='production' check) so a deployment that simply

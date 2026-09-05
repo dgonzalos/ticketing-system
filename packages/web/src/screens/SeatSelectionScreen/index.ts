@@ -1,0 +1,1 @@
+export { SeatSelectionScreen } from './SeatSelectionScreen';
