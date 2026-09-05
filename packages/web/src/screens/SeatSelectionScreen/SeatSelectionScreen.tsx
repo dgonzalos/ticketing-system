@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { SeatMap } from '../../components/Seats';
 import { BackLink, Button, Card } from '../../components/ui';
 import { useDevAuth } from '../../hooks/useDevAuth';
@@ -11,6 +11,7 @@ const DEV_USER_ID = 'dev-user';
 /** Route container for `/events/:eventId/performances/:performanceId`: the seat-selection flow for one performance. */
 export function SeatSelectionScreen() {
   const { eventId, performanceId } = useParams<{ eventId: string; performanceId: string }>();
+  const navigate = useNavigate();
   const { token, error: authError } = useDevAuth(DEV_USER_ID);
   const {
     seats,
@@ -19,11 +20,12 @@ export function SeatSelectionScreen() {
     isSeatsLoading,
     seatsError,
     selectError,
-    confirmError,
     onSeatSelect,
-    confirmSelection,
     clearSelection,
   } = useSeatSelection({ performanceId: performanceId!, token });
+
+  const goToCheckout = () =>
+    navigate('/checkout', { state: { performanceId, eventId, seatIds: selectedSeatIds } });
 
   if (authError) {
     return <p className={styles.error}>Failed to authenticate: {authError.message}</p>;
@@ -48,14 +50,13 @@ export function SeatSelectionScreen() {
           <p>{selectedSeatIds.length} seat(s) selected</p>
           <p className={styles.total}>${(totalPrice / 100).toFixed(2)}</p>
           {selectError && <p className={styles.error}>{(selectError as Error).message}</p>}
-          {confirmError && <p className={styles.error}>{confirmError.message}</p>}
           <Button
             className={styles.summaryButton}
             fullWidth
             disabled={selectedSeatIds.length === 0}
-            onClick={() => void confirmSelection()}
+            onClick={goToCheckout}
           >
-            Confirm purchase
+            Checkout
           </Button>
           <Button
             className={styles.summaryButton}

@@ -1,0 +1,40 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.layout {
+  display: flex;
+  gap: var(--space-8);
+  align-items: flex-start;
+}
+
+.details {
+  flex: 1;
+}
+
+.summary {
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.summary h2 {
+  margin: 0;
+  font-size: var(--font-size-3);
+}
+
+.performanceMeta {
+  color: var(--color-text-secondary);
+  margin: var(--space-1) 0 var(--space-4) 0;
+}
+
+.loading {
+  color: var(--color-text-secondary);
+}
+
+.error {
+  color: var(--color-danger-text);
+}

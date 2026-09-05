@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 import type { Seat } from '../components/Seats/types';
-import { confirmSeat, listSeats, selectSeat, unlockSeat } from '../services/seatApi';
+import { selectSeat, unlockSeat } from '../services/seatApi';
+import { useSeats } from './useSeats';
 
 interface UseSeatSelectionOptions {
   performanceId: string;
@@ -12,7 +13,9 @@ interface UseSeatSelectionOptions {
 /**
  * Seat selection state for a single performance: fetches the seat list,
  * tracks which seats the current user has selected, and drives the
- * select/unlock/confirm mutations against the backend's SeatLockManager.
+ * select/unlock mutations against the backend's SeatLockManager. Confirming
+ * the purchase itself happens later, atomically for the whole cart, via
+ * `useCheckout` — not per-seat here.
  *
  * There is no `lockId` on the wire — the backend keys every lock purely by
  * `(seatId, userId from the JWT)` — so "which seats are mine" is tracked
@@ -25,7 +28,6 @@ export function useSeatSelection({ performanceId, token }: UseSeatSelectionOptio
   const queryKey = ['seats', performanceId];
 
   const [selectedSeatIds, setSelectedSeatIds] = useState<Set<string>>(new Set());
-  const [confirmError, setConfirmError] = useState<Error | null>(null);
   const [loadingSeatIds, setLoadingSeatIds] = useState<Set<string>>(new Set());
 
   const markLoading = (seatId: string) => setLoadingSeatIds((prev) => new Set(prev).add(seatId));
@@ -36,17 +38,7 @@ export function useSeatSelection({ performanceId, token }: UseSeatSelectionOptio
       return next;
     });
 
-  const {
-    data: seats = [],
-    isLoading: isSeatsLoading,
-    error: seatsError,
-  } = useQuery({
-    queryKey,
-    queryFn: () => listSeats(performanceId),
-    enabled: performanceId.length > 0,
-    staleTime: 5 * 60 * 1000,
-    retry: 2,
-  });
+  const { data: seats = [], isLoading: isSeatsLoading, error: seatsError } = useSeats(performanceId);
 
   /**
    * Optimistically writes `status` onto one seat, returning that seat's
@@ -141,27 +133,6 @@ export function useSeatSelection({ performanceId, token }: UseSeatSelectionOptio
 
   const totalPrice = seats.filter((seat) => selectedSeatIds.has(seat.id)).reduce((sum, seat) => sum + seat.price, 0);
 
-  /**
-   * Confirms every selected seat. Uses `allSettled`, not `all`: one seat's
-   * hold expiring (or any other per-seat failure) must not stop the rest
-   * from confirming, and successfully-confirmed seats must not stay stuck
-   * in `selectedSeatIds` just because a sibling call failed.
-   */
-  const confirmSelection = useCallback(async () => {
-    if (!token) {
-      setConfirmError(new Error('Not authenticated yet'));
-      return;
-    }
-
-    const seatIds = Array.from(selectedSeatIds);
-    const results = await Promise.allSettled(seatIds.map((seatId) => confirmSeat(seatId, token)));
-    const failedSeatIds = seatIds.filter((_seatId, index) => results[index]?.status === 'rejected');
-
-    setSelectedSeatIds(new Set(failedSeatIds));
-    setConfirmError(failedSeatIds.length > 0 ? new Error(`Failed to confirm ${failedSeatIds.length} of ${seatIds.length} seat(s)`) : null);
-    await queryClient.invalidateQueries({ queryKey });
-  }, [selectedSeatIds, token, queryClient, queryKey]);
-
   const clearSelection = useCallback(() => {
     selectedSeatIds.forEach((seatId) => unlockMutation.mutate(seatId));
   }, [selectedSeatIds, unlockMutation]);
@@ -174,9 +145,7 @@ export function useSeatSelection({ performanceId, token }: UseSeatSelectionOptio
     isSeatsLoading,
     seatsError,
     selectError: selectMutation.error,
-    confirmError,
     onSeatSelect,
-    confirmSelection,
     clearSelection,
   };
 }

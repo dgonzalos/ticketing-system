@@ -9,7 +9,8 @@ import type {
   SeatReleaseResult,
   SeatStatus,
 } from '../../domain/seats/seat.repository.js';
-import * as schema from './schema/seats.js';
+import { isActiveReservation, markSeatsSold } from './seat-queries.js';
+import * as schema from './schema/index.js';
 
 type SeatRow = typeof schema.seatsTable.$inferSelect;
 
@@ -34,12 +35,6 @@ function toSeatDetails(row: SeatRow): SeatDetails {
     reservedBy: row.reservedBy,
     reservedUntil: row.reservedUntil,
   };
-}
-
-/** Whether `row`'s reservation is still 'reserved' and has not expired. */
-function isActiveReservation(row: SeatRow, now: Date): boolean {
-  const expired = row.reservedUntil !== null && row.reservedUntil < now;
-  return row.status === 'reserved' && !expired;
 }
 
 /**
@@ -136,11 +131,7 @@ export class DrizzleSeatRepository implements ISeatRepository {
         return { confirmed: false, seat: toSeatLock(row) };
       }
 
-      const [updated] = await tx
-        .update(schema.seatsTable)
-        .set({ status: 'sold', reservedUntil: null, reservedBy: null })
-        .where(eq(schema.seatsTable.id, seatId))
-        .returning();
+      const [updated] = await markSeatsSold(tx, [seatId]);
 
       return { confirmed: true, seat: toSeatLock(updated) };
     });

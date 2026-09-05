@@ -15,6 +15,13 @@
       "when": 1788593272322,
       "tag": "0001_tranquil_kylun",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788609383911,
+      "tag": "0002_stiff_masked_marvel",
+      "breakpoints": true
     }
   ]
 }

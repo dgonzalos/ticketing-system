@@ -1,6 +1,8 @@
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { BrowserRouter, Route, Routes, useParams } from 'react-router-dom';
+import { CheckoutScreen } from './screens/CheckoutScreen';
 import { EventsScreen } from './screens/EventsScreen';
+import { OrderConfirmationScreen } from './screens/OrderConfirmationScreen';
 import { PerformancesScreen } from './screens/PerformancesScreen';
 import { SeatSelectionScreen } from './screens/SeatSelectionScreen';
 import styles from './App.module.css';
@@ -35,6 +37,8 @@ export default function App() {
               <Route path="/" element={<EventsScreen />} />
               <Route path="/events/:eventId" element={<PerformancesScreen />} />
               <Route path="/events/:eventId/performances/:performanceId" element={<SeatSelectionRoute />} />
+              <Route path="/checkout" element={<CheckoutScreen />} />
+              <Route path="/order/:orderId" element={<OrderConfirmationScreen />} />
             </Routes>
           </main>
         </div>

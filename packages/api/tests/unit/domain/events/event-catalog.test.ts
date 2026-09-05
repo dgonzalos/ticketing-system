@@ -8,6 +8,7 @@ function createMockRepository(): IEventRepository {
     listEvents: vi.fn(),
     findEventById: vi.fn(),
     listPerformancesByEvent: vi.fn(),
+    findPerformanceById: vi.fn(),
   };
 }
 

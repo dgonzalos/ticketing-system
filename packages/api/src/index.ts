@@ -4,11 +4,14 @@ import cors from '@fastify/cors';
 import fastifyJwt from '@fastify/jwt';
 import { authRoutes } from './api/routes/auth.js';
 import { eventsRoutes } from './api/routes/events.js';
+import { ordersRoutes } from './api/routes/orders.js';
 import { seatsRoutes } from './api/routes/seats.js';
 import { EventCatalog } from './domain/events/event-catalog.js';
+import { OrderService } from './domain/orders/order-service.js';
 import { SeatLockManager } from './domain/seats/seat-lock.js';
 import { db } from './infrastructure/db/client.js';
 import { DrizzleEventRepository } from './infrastructure/db/drizzle-event.repository.js';
+import { DrizzleOrderRepository } from './infrastructure/db/drizzle-order.repository.js';
 import { DrizzleSeatRepository } from './infrastructure/db/drizzle-seat.repository.js';
 import { runMigrations } from './infrastructure/db/migrate.js';
 
@@ -61,10 +64,13 @@ const seatRepository = new DrizzleSeatRepository(db);
 const seatLockManager = new SeatLockManager(seatRepository);
 const eventRepository = new DrizzleEventRepository(db);
 const eventCatalog = new EventCatalog(eventRepository);
+const orderRepository = new DrizzleOrderRepository(db);
+const orderService = new OrderService(orderRepository, eventRepository);
 
 // Routes
 await app.register(seatsRoutes, { seatLockManager });
 await app.register(eventsRoutes, { eventCatalog });
+await app.register(ordersRoutes, { orderService });
 
 // Dev-only: mints JWTs for any userId with no credential check. Fail-closed
 // opt-in (not a NODE_ENV!=='production' check) so a deployment that simply

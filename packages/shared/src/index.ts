@@ -55,3 +55,41 @@ export interface PerformanceDto {
   city: string;
   capacity: number;
 }
+
+/** Lifecycle state of an order. */
+export type OrderStatus = 'pending' | 'payment_processing' | 'completed' | 'cancelled';
+
+/** A single seat within an order, as returned by the API. */
+export interface OrderItemDto {
+  seatId: string;
+  /** Price in cents, snapshotted from the seat at the moment of purchase. */
+  price: number;
+}
+
+/**
+ * Wire shape of an order as returned by the API's `POST /orders` and
+ * `GET /orders/:orderId` (see `packages/api/src/api/routes/orders.ts`).
+ */
+export interface OrderDto {
+  id: string;
+  userId: string;
+  email: string;
+  performanceId: string;
+  status: OrderStatus;
+  /** Total charged, in cents. */
+  totalAmount: number;
+  items: OrderItemDto[];
+  /** ISO 8601 timestamp. */
+  createdAt: string;
+  /** Always true today — Phase 2 payment integration isn't wired up yet. */
+  paymentRequired: boolean;
+}
+
+/** Request body for the API's `POST /orders`. */
+export interface CreateOrderRequestDto {
+  performanceId: string;
+  seatIds: string[];
+  /** Total the client believes it's paying, in cents — the server recalculates and rejects on mismatch. */
+  totalAmount: number;
+  email: string;
+}

@@ -48,4 +48,12 @@ export class DrizzleEventRepository implements IEventRepository {
       .where(eq(schema.performancesTable.eventId, eventId));
     return rows.map(toPerformance);
   }
+
+  async findPerformanceById(performanceId: string): Promise<Performance | null> {
+    const rows = await this.db
+      .select()
+      .from(schema.performancesTable)
+      .where(eq(schema.performancesTable.id, performanceId));
+    return rows[0] ? toPerformance(rows[0]) : null;
+  }
 }

@@ -8,4 +8,4 @@
 export * from './events.js';
 export * from './performances.js';
 export * from './seats.js';
-// export * from './orders.js';  (future)
+export * from './orders.js';

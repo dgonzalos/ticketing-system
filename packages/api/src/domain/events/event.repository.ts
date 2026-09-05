@@ -37,4 +37,7 @@ export interface IEventRepository {
    * needing that check should call {@link findEventById} first.
    */
   listPerformancesByEvent(eventId: string): Promise<Performance[]>;
+
+  /** Reads a single performance, or null if it does not exist. */
+  findPerformanceById(performanceId: string): Promise<Performance | null>;
 }
