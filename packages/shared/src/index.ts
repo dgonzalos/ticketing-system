@@ -93,3 +93,15 @@ export interface CreateOrderRequestDto {
   totalAmount: number;
   email: string;
 }
+
+/**
+ * Wire shape returned by the API's `POST /orders/:orderId/payment-session`
+ * (see `packages/api/src/api/routes/orders.ts`). `paymentUrl` is a
+ * placeholder in Phase 1 (an in-app route) and will become a real external
+ * provider checkout URL in Phase 2.
+ */
+export interface PaymentSessionResponseDto {
+  paymentUrl: string;
+  orderId: string;
+  status: 'payment_processing';
+}

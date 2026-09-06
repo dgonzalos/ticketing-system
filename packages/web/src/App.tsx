@@ -3,6 +3,8 @@ import { BrowserRouter, Route, Routes, useParams } from 'react-router-dom';
 import { CheckoutScreen } from './screens/CheckoutScreen';
 import { EventsScreen } from './screens/EventsScreen';
 import { OrderConfirmationScreen } from './screens/OrderConfirmationScreen';
+import { PaymentScreen } from './screens/PaymentScreen';
+import { PaymentSuccessScreen } from './screens/PaymentSuccessScreen';
 import { PerformancesScreen } from './screens/PerformancesScreen';
 import { SeatSelectionScreen } from './screens/SeatSelectionScreen';
 import styles from './App.module.css';
@@ -39,6 +41,8 @@ export default function App() {
               <Route path="/events/:eventId/performances/:performanceId" element={<SeatSelectionRoute />} />
               <Route path="/checkout" element={<CheckoutScreen />} />
               <Route path="/order/:orderId" element={<OrderConfirmationScreen />} />
+              <Route path="/order/:orderId/payment" element={<PaymentScreen />} />
+              <Route path="/order/:orderId/payment-success" element={<PaymentSuccessScreen />} />
             </Routes>
           </main>
         </div>

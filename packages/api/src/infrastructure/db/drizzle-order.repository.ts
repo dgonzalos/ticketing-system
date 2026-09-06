@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import {
   OrderPriceMismatchError,
@@ -123,6 +123,22 @@ export class DrizzleOrderRepository implements IOrderRepository {
     }
 
     const itemRows = rows.flatMap((row) => (row.item ? [row.item] : []));
+
+    return toOrder(orderRow, itemRows);
+  }
+
+  async updateOrderStatus(orderId: string, fromStatus: OrderStatus, toStatus: OrderStatus): Promise<Order | null> {
+    const [orderRow] = await this.db
+      .update(schema.ordersTable)
+      .set({ status: toStatus, updatedAt: new Date() })
+      .where(and(eq(schema.ordersTable.id, orderId), eq(schema.ordersTable.status, fromStatus)))
+      .returning();
+
+    if (!orderRow) {
+      return null;
+    }
+
+    const itemRows = await this.db.select().from(schema.orderItemsTable).where(eq(schema.orderItemsTable.orderId, orderId));
 
     return toOrder(orderRow, itemRows);
   }

@@ -60,4 +60,14 @@ export interface IOrderRepository {
 
   /** Reads a single order (with its items), or null if it does not exist. */
   findOrderById(orderId: string): Promise<Order | null>;
+
+  /**
+   * Atomically transitions an order from `fromStatus` to `toStatus`,
+   * guarded by a `WHERE status = fromStatus` clause so a concurrent
+   * transition can't be silently clobbered.
+   *
+   * @returns the updated order, or `null` if no row matched — either the
+   * order doesn't exist, or its status was no longer `fromStatus`.
+   */
+  updateOrderStatus(orderId: string, fromStatus: OrderStatus, toStatus: OrderStatus): Promise<Order | null>;
 }

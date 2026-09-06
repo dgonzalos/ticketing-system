@@ -32,6 +32,8 @@ function createMockOrderService(): OrderService {
   return {
     createOrder: vi.fn(),
     findOrderById: vi.fn(),
+    initiatePayment: vi.fn(),
+    completePayment: vi.fn(),
   } as unknown as OrderService;
 }
 
@@ -288,6 +290,197 @@ describe('orders routes', () => {
 
       expect(response.statusCode).toBe(400);
       expect(orderService.findOrderById).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /orders/:orderId/payment-session', () => {
+    it('returns 401 with no Authorization header', async () => {
+      const response = await app.inject({ method: 'POST', url: '/orders/order-1/payment-session' });
+      expect(response.statusCode).toBe(401);
+      expect(orderService.initiatePayment).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 for a whitespace-only orderId without calling the service', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/orders/%20/payment-session',
+        headers: authHeader(),
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(orderService.initiatePayment).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 when the order does not exist', async () => {
+      (orderService.findOrderById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/orders/order-ghost/payment-session',
+        headers: authHeader(),
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(orderService.initiatePayment).not.toHaveBeenCalled();
+    });
+
+    it('returns 403 when the order belongs to a different user', async () => {
+      (orderService.findOrderById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(order);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/orders/order-1/payment-session',
+        headers: authHeader('user-2'),
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(orderService.initiatePayment).not.toHaveBeenCalled();
+    });
+
+    it('returns 409 when the order is not pending', async () => {
+      (orderService.findOrderById as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ...order,
+        status: 'payment_processing',
+      });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/orders/order-1/payment-session',
+        headers: authHeader('user-1'),
+      });
+
+      expect(response.statusCode).toBe(409);
+      expect(orderService.initiatePayment).not.toHaveBeenCalled();
+    });
+
+    it('returns 200 with the payment session on success', async () => {
+      (orderService.findOrderById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(order);
+      (orderService.initiatePayment as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        order: { ...order, status: 'payment_processing' },
+        paymentUrl: '/order/order-1/payment',
+      });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/orders/order-1/payment-session',
+        headers: authHeader('user-1'),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        paymentUrl: '/order/order-1/payment',
+        orderId: 'order-1',
+        status: 'payment_processing',
+      });
+      expect(orderService.initiatePayment).toHaveBeenCalledWith('order-1');
+    });
+
+    it('returns 409 when the atomic transition loses a race after the initial status check', async () => {
+      (orderService.findOrderById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(order);
+      (orderService.initiatePayment as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/orders/order-1/payment-session',
+        headers: authHeader('user-1'),
+      });
+
+      expect(response.statusCode).toBe(409);
+    });
+  });
+
+  describe('POST /orders/:orderId/confirm-payment', () => {
+    it('returns 401 with no Authorization header', async () => {
+      const response = await app.inject({ method: 'POST', url: '/orders/order-1/confirm-payment' });
+      expect(response.statusCode).toBe(401);
+      expect(orderService.completePayment).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 for a whitespace-only orderId without calling the service', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/orders/%20/confirm-payment',
+        headers: authHeader(),
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(orderService.completePayment).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 when the order does not exist', async () => {
+      (orderService.findOrderById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/orders/order-ghost/confirm-payment',
+        headers: authHeader(),
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(orderService.completePayment).not.toHaveBeenCalled();
+    });
+
+    it('returns 403 when the order belongs to a different user', async () => {
+      (orderService.findOrderById as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ...order,
+        status: 'payment_processing',
+      });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/orders/order-1/confirm-payment',
+        headers: authHeader('user-2'),
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(orderService.completePayment).not.toHaveBeenCalled();
+    });
+
+    it('returns 409 when the order is still pending (payment never initiated)', async () => {
+      (orderService.findOrderById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(order);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/orders/order-1/confirm-payment',
+        headers: authHeader('user-1'),
+      });
+
+      expect(response.statusCode).toBe(409);
+      expect(orderService.completePayment).not.toHaveBeenCalled();
+    });
+
+    it('returns 200 with the completed order on success', async () => {
+      (orderService.findOrderById as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ...order,
+        status: 'payment_processing',
+      });
+      const completedOrder = { ...order, status: 'completed' as const };
+      (orderService.completePayment as ReturnType<typeof vi.fn>).mockResolvedValueOnce(completedOrder);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/orders/order-1/confirm-payment',
+        headers: authHeader('user-1'),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().status).toBe('completed');
+      expect(orderService.completePayment).toHaveBeenCalledWith('order-1');
+    });
+
+    it('is idempotent: returns 200 with the existing order when already completed, not 409', async () => {
+      const completedOrder = { ...order, status: 'completed' as const };
+      (orderService.findOrderById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(completedOrder);
+      (orderService.completePayment as ReturnType<typeof vi.fn>).mockResolvedValueOnce(completedOrder);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/orders/order-1/confirm-payment',
+        headers: authHeader('user-1'),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().status).toBe('completed');
     });
   });
 });
