@@ -11,8 +11,8 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => navigateMock };
 });
 
-vi.mock('../../hooks/useDevAuth', () => ({
-  useDevAuth: () => ({ token: 'test-token', error: null, isLoading: false }),
+vi.mock('../../hooks/useAuth', () => ({
+  useAuth: () => ({ token: 'test-token', user: null, isAuthenticated: true, isLoading: false, error: null }),
 }));
 
 vi.mock('../../services/orderApi');

@@ -9,11 +9,14 @@ import { seatsRoutes } from './api/routes/seats.js';
 import { EventCatalog } from './domain/events/event-catalog.js';
 import { OrderService } from './domain/orders/order-service.js';
 import { SeatLockManager } from './domain/seats/seat-lock.js';
+import { UserService } from './domain/users/user-service.js';
 import { db } from './infrastructure/db/client.js';
 import { DrizzleEventRepository } from './infrastructure/db/drizzle-event.repository.js';
 import { DrizzleOrderRepository } from './infrastructure/db/drizzle-order.repository.js';
 import { DrizzleSeatRepository } from './infrastructure/db/drizzle-seat.repository.js';
+import { DrizzleUserRepository } from './infrastructure/db/drizzle-user.repository.js';
 import { runMigrations } from './infrastructure/db/migrate.js';
+import { jwtTokenSigner } from './infrastructure/auth/jwt.js';
 
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -34,9 +37,9 @@ await app.register(cors, { origin: '*' });
 
 /**
  * Auth flow:
- *  1. A token is issued out-of-band (e.g. via `infrastructure/auth/jwt.ts`'s
- *     `signToken()`, or a future login route) as a signed HS256 JWT with
- *     payload `{ userId }`.
+ *  1. A token is issued via `POST /auth/signup` or `POST /auth/login` (both
+ *     call `infrastructure/auth/jwt.ts`'s `signToken()` internally) as a
+ *     signed HS256 JWT with payload `{ userId }`.
  *  2. Clients send it as `Authorization: Bearer <token>`.
  *  3. Protected routes add `onRequest: [app.authenticate]`.
  *  4. `authenticate` calls `request.jwtVerify()` (from `@fastify/jwt`), which
@@ -66,18 +69,14 @@ const eventRepository = new DrizzleEventRepository(db);
 const eventCatalog = new EventCatalog(eventRepository);
 const orderRepository = new DrizzleOrderRepository(db);
 const orderService = new OrderService(orderRepository, eventRepository);
+const userRepository = new DrizzleUserRepository(db);
+const userService = new UserService(userRepository, jwtTokenSigner);
 
 // Routes
 await app.register(seatsRoutes, { seatLockManager });
 await app.register(eventsRoutes, { eventCatalog });
 await app.register(ordersRoutes, { orderService });
-
-// Dev-only: mints JWTs for any userId with no credential check. Fail-closed
-// opt-in (not a NODE_ENV!=='production' check) so a deployment that simply
-// forgets to set NODE_ENV doesn't silently ship this to production.
-if (process.env.ENABLE_DEV_AUTH_ROUTES === 'true') {
-  await app.register(authRoutes);
-}
+await app.register(authRoutes, { userService });
 
 // Health check
 app.get('/health', async (request, reply) => {

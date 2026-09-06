@@ -3,14 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { PriceSummary, SeatsSummaryList } from '../../components/Orders';
 import type { OrderSeatSummary } from '../../components/Orders';
 import { Button, Card } from '../../components/ui';
-import { useDevAuth } from '../../hooks/useDevAuth';
+import { useAuth } from '../../hooks/useAuth';
 import { useInitiatePayment } from '../../hooks/useInitiatePayment';
 import { useOrder } from '../../hooks/useOrder';
 import { useSeats } from '../../hooks/useSeats';
 import styles from './OrderConfirmationScreen.module.css';
-
-// Placeholder until real login exists — matches SeatSelectionScreen.
-const DEV_USER_ID = 'dev-user';
 
 /**
  * Route container for `/order/:orderId`: shows the order the buyer is
@@ -22,7 +19,7 @@ const DEV_USER_ID = 'dev-user';
 export function OrderConfirmationScreen() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { token, error: authError } = useDevAuth(DEV_USER_ID);
+  const { token } = useAuth();
   const { data: order, isLoading: isOrderLoading, error: orderError } = useOrder(orderId, { token });
   const { data: seats = [] } = useSeats(order?.performanceId);
   const initiatePayment = useInitiatePayment({ token });
@@ -40,11 +37,7 @@ export function OrderConfirmationScreen() {
     });
   }, [order, seats]);
 
-  if (authError) {
-    return <p className={styles.error}>Failed to authenticate: {authError.message}</p>;
-  }
-
-  if (isOrderLoading || !token) {
+  if (isOrderLoading) {
     return <p className={styles.loading}>Loading order…</p>;
   }
 

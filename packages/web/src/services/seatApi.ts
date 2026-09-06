@@ -69,17 +69,3 @@ export async function checkAvailability(seatIds: string[]): Promise<Record<strin
   }
   return response.json();
 }
-
-/** Exchanges a userId for a JWT via the backend's dev-only token route. Not real auth — see `api/routes/auth.ts`. */
-export async function fetchDevToken(userId: string): Promise<string> {
-  const response = await fetch(`${API_BASE}/auth/dev-token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId }),
-  });
-  if (!response.ok) {
-    throw new Error(await parseErrorMessage(response, 'Failed to obtain a dev token'));
-  }
-  const { token } = await response.json();
-  return token;
-}

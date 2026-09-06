@@ -1,13 +1,10 @@
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BackLink, Button } from '../../components/ui';
+import { useAuth } from '../../hooks/useAuth';
 import { useConfirmPayment } from '../../hooks/useConfirmPayment';
-import { useDevAuth } from '../../hooks/useDevAuth';
 import { useOrder } from '../../hooks/useOrder';
 import styles from './PaymentScreen.module.css';
-
-// Placeholder until real login exists — matches SeatSelectionScreen.
-const DEV_USER_ID = 'dev-user';
 
 /** How long to show the simulated "processing" state before confirming. */
 const PROCESSING_DELAY_MS = 2500;
@@ -26,7 +23,7 @@ function formatCents(cents: number): string {
 export function PaymentScreen() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { token, error: authError } = useDevAuth(DEV_USER_ID);
+  const { token } = useAuth();
   const { data: order, isLoading: isOrderLoading, error: orderError } = useOrder(orderId, { token });
   const confirmPayment = useConfirmPayment({ token });
 
@@ -40,7 +37,7 @@ export function PaymentScreen() {
   };
 
   useEffect(() => {
-    if (!orderId || !token) {
+    if (!orderId) {
       return;
     }
     // No "already started" ref guard: React 18 StrictMode intentionally
@@ -51,13 +48,9 @@ export function PaymentScreen() {
     // mount is the correct, StrictMode-safe pattern here.
     const timer = setTimeout(confirm, PROCESSING_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [orderId, token]);
+  }, [orderId]);
 
-  if (authError) {
-    return <p className={styles.error}>Failed to authenticate: {authError.message}</p>;
-  }
-
-  if (isOrderLoading || !token) {
+  if (isOrderLoading) {
     return <p className={styles.loading}>Loading order…</p>;
   }
 

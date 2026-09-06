@@ -3,14 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { PriceSummary, SeatsSummaryList } from '../../components/Orders';
 import type { OrderSeatSummary } from '../../components/Orders';
 import { BackLink, Button, Card, Input } from '../../components/ui';
+import { useAuth } from '../../hooks/useAuth';
 import { useCheckout } from '../../hooks/useCheckout';
-import { useDevAuth } from '../../hooks/useDevAuth';
 import { usePerformances } from '../../hooks/usePerformances';
 import { useSeats } from '../../hooks/useSeats';
+import { isValidEmail } from '../../utils/validation';
 import styles from './CheckoutScreen.module.css';
-
-// Placeholder until real login exists — matches SeatSelectionScreen.
-const DEV_USER_ID = 'dev-user';
 
 /**
  * Sales tax applied on top of seat prices. Must match
@@ -37,10 +35,6 @@ function isCheckoutLocationState(state: unknown): state is CheckoutLocationState
   );
 }
 
-function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
 /**
  * Route container for `/checkout`: captures the buyer's email and places
  * the order for the seats selected on the previous screen. Reached only via
@@ -54,7 +48,7 @@ export function CheckoutScreen() {
   const navigate = useNavigate();
   const state = isCheckoutLocationState(location.state) ? location.state : null;
 
-  const { token, error: authError } = useDevAuth(DEV_USER_ID);
+  const { token } = useAuth();
   const { data: performances = [] } = usePerformances(state?.eventId);
   const { data: seats = [], isLoading: isSeatsLoading, error: seatsError } = useSeats(state?.performanceId);
   const checkout = useCheckout({ token });
@@ -90,11 +84,7 @@ export function CheckoutScreen() {
     return null;
   }
 
-  if (authError) {
-    return <p className={styles.error}>Failed to authenticate: {authError.message}</p>;
-  }
-
-  if (isSeatsLoading || !token) {
+  if (isSeatsLoading) {
     return <p className={styles.loading}>Loading checkout…</p>;
   }
 

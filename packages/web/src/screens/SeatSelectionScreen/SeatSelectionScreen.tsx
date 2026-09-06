@@ -1,18 +1,15 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { SeatMap } from '../../components/Seats';
 import { BackLink, Button, Card } from '../../components/ui';
-import { useDevAuth } from '../../hooks/useDevAuth';
+import { useAuth } from '../../hooks/useAuth';
 import { useSeatSelection } from '../../hooks/useSeatSelection';
 import styles from './SeatSelectionScreen.module.css';
-
-// Placeholder until real login exists.
-const DEV_USER_ID = 'dev-user';
 
 /** Route container for `/events/:eventId/performances/:performanceId`: the seat-selection flow for one performance. */
 export function SeatSelectionScreen() {
   const { eventId, performanceId } = useParams<{ eventId: string; performanceId: string }>();
   const navigate = useNavigate();
-  const { token, error: authError } = useDevAuth(DEV_USER_ID);
+  const { token } = useAuth();
   const {
     seats,
     selectedSeatIds,
@@ -27,11 +24,7 @@ export function SeatSelectionScreen() {
   const goToCheckout = () =>
     navigate('/checkout', { state: { performanceId, eventId, seatIds: selectedSeatIds } });
 
-  if (authError) {
-    return <p className={styles.error}>Failed to authenticate: {authError.message}</p>;
-  }
-
-  if (isSeatsLoading || !token) {
+  if (isSeatsLoading) {
     return <p className={styles.loading}>Loading seats…</p>;
   }
 

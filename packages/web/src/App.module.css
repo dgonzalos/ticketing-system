@@ -10,11 +10,24 @@
   background-color: var(--color-bg-surface);
   padding: var(--space-5);
   border-bottom: 1px solid var(--color-border-default);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .header h1 {
   margin: 0;
   font-size: var(--font-size-5);
+}
+
+.userMenu {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.userEmail {
+  color: var(--color-text-secondary);
 }
 
 .main {

@@ -1,0 +1,23 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.heading {
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-2) 0;
+  font-size: var(--font-size-5);
+}
+
+.error {
+  color: var(--color-danger-text);
+}
+
+.switchLink {
+  color: var(--color-text-secondary);
+  text-align: center;
+  margin: 0;
+}

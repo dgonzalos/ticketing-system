@@ -79,3 +79,27 @@ export class OrderPriceMismatchError extends DomainError {
     super(`Price mismatch: recalculated total ${expected} does not match submitted total ${submitted}`);
   }
 }
+
+/**
+ * Thrown on signup when the (normalized) email is already registered to
+ * another account. The message deliberately omits the email — it is sent
+ * verbatim to the client on a 409, and echoing the submitted value back
+ * would be an avoidable enumeration/reflection leak.
+ */
+export class EmailAlreadyRegisteredError extends DomainError {
+  constructor(public readonly email: string) {
+    super('Email already registered');
+  }
+}
+
+/**
+ * Thrown on login when the email doesn't match any account, or the password
+ * doesn't match that account's hash. Deliberately a single error for both
+ * cases — the two must always be indistinguishable to the caller (same
+ * status, same message) to avoid leaking which emails have accounts.
+ */
+export class InvalidCredentialsError extends DomainError {
+  constructor() {
+    super('Invalid email or password');
+  }
+}

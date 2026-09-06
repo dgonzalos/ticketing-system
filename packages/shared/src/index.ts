@@ -105,3 +105,36 @@ export interface PaymentSessionResponseDto {
   orderId: string;
   status: 'payment_processing';
 }
+
+/**
+ * Wire shape of a user as returned by the API's `POST /auth/signup` and
+ * `POST /auth/login` (see `packages/api/src/api/routes/auth.ts`).
+ */
+export interface UserDto {
+  id: string;
+  email: string;
+  name: string | null;
+  /** ISO 8601 timestamp. */
+  createdAt: string;
+}
+
+/** Request body for the API's `POST /auth/signup`. */
+export interface SignupRequestDto {
+  email: string;
+  /** Minimum 8 characters, checked server-side. */
+  password: string;
+  /** Must match `password` — checked server-side. */
+  passwordConfirm: string;
+}
+
+/** Request body for the API's `POST /auth/login`. */
+export interface LoginRequestDto {
+  email: string;
+  password: string;
+}
+
+/** Wire shape returned by both `POST /auth/signup` and `POST /auth/login`. */
+export interface AuthResponseDto {
+  user: UserDto;
+  token: string;
+}

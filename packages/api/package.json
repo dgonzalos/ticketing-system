@@ -15,6 +15,7 @@
     "@fastify/helmet": "^11.1.0",
     "@fastify/jwt": "^8.0.1",
     "@ticketing-system/shared": "workspace:*",
+    "argon2": "^0.41.1",
     "drizzle-orm": "^0.45.2",
     "fast-jwt": "^4.0.0",
     "fastify": "^4.24.0",

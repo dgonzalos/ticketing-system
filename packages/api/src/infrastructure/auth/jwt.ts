@@ -1,4 +1,5 @@
 import { createSigner, createVerifier } from 'fast-jwt';
+import type { ITokenSigner } from '../../domain/users/token-signer.js';
 
 /** Decoded payload of a ticketing-system access token. */
 export interface JwtPayload {
@@ -25,6 +26,9 @@ export function signToken(userId: string): string {
   const sign = createSigner({ key: getSecret(), algorithm: ALGORITHM, expiresIn: DEFAULT_EXPIRES_IN });
   return sign({ userId });
 }
+
+/** {@link ITokenSigner} implementation the domain layer is injected with. */
+export const jwtTokenSigner: ITokenSigner = { sign: signToken };
 
 /**
  * Verifies `token` and extracts its payload.

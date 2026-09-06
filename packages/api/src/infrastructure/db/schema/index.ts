@@ -9,3 +9,4 @@ export * from './events.js';
 export * from './performances.js';
 export * from './seats.js';
 export * from './orders.js';
+export * from './users.js';
