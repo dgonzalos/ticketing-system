@@ -1,16 +1,24 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Button, Card, Input } from '../../components/ui';
 import { useAuth } from '../../hooks/useAuth';
+import { useAuthRedirect } from '../../hooks/useAuthRedirect';
 import { isValidEmail } from '../../utils/validation';
 import styles from './SignupScreen.module.css';
 
 const MIN_PASSWORD_LENGTH = 8;
 
-/** Route container for `/signup`. On success the account is logged in immediately and sent to `/`. */
+/**
+ * Route container for `/signup`. On success the account is logged in
+ * immediately and returned to wherever `ProtectedRoute` sent them from, or
+ * `/` if they arrived here directly. The "Log in" link forwards this
+ * screen's own location state along, so that redirect target survives a
+ * detour through `/login` too, not just a signup submitted directly here.
+ */
 export function SignupScreen() {
   const { signup } = useAuth();
-  const navigate = useNavigate();
+  const redirectAfterAuth = useAuthRedirect();
+  const location = useLocation();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,7 +47,7 @@ export function SignupScreen() {
     setIsSubmitting(true);
     try {
       await signup(email, password, passwordConfirm);
-      navigate('/', { replace: true });
+      redirectAfterAuth();
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -81,7 +89,7 @@ export function SignupScreen() {
           {isSubmitting ? 'Signing up…' : 'Sign Up'}
         </Button>
         <p className={styles.switchLink}>
-          Already have an account? <Link to="/login">Log in</Link>
+          Already have an account? <Link to="/login" state={location.state}>Log in</Link>
         </p>
       </Card>
     </div>

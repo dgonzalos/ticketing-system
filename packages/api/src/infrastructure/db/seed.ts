@@ -1,7 +1,10 @@
 /**
  * Seeds a handful of realistic events, performances, and seats for local
  * development. Safe to re-run: clears existing catalog data first (in
- * FK-dependency order: seats -> performances -> events) before inserting.
+ * FK-dependency order: order_items -> orders -> seats -> performances ->
+ * events) before inserting. Orders/order_items must go first since they
+ * reference seats — any orders placed against the previous seed data would
+ * otherwise block deleting its seats.
  *
  * Usage:
  * ```
@@ -9,7 +12,7 @@
  * ```
  */
 import { db, pool } from './client.js';
-import { eventsTable, performancesTable, seatsTable } from './schema/index.js';
+import { eventsTable, orderItemsTable, ordersTable, performancesTable, seatsTable } from './schema/index.js';
 import type { NewEvent, NewPerformance, NewSeat } from './schema/index.js';
 
 const events: NewEvent[] = [
@@ -71,6 +74,8 @@ function seatsForPerformance(performanceId: string): NewSeat[] {
 async function seed(): Promise<void> {
   console.log('Seeding events/performances/seats...');
 
+  await db.delete(orderItemsTable);
+  await db.delete(ordersTable);
   await db.delete(seatsTable);
   await db.delete(performancesTable);
   await db.delete(eventsTable);

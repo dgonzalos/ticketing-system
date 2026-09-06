@@ -46,6 +46,23 @@ describe('LoginScreen', () => {
     });
   });
 
+  it('returns to the original page and its location state after a redirected login', async () => {
+    loginMock.mockResolvedValueOnce(undefined);
+    renderWithProviders(<LoginScreen />, {
+      route: '/login',
+      state: { from: { pathname: '/checkout', search: '', state: { seatIds: ['seat-1'] } } },
+    });
+
+    await fillAndSubmit('buyer@example.com', 'correct-horse-battery');
+
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith(
+        { pathname: '/checkout', search: '' },
+        { replace: true, state: { seatIds: ['seat-1'] } }
+      );
+    });
+  });
+
   it('shows an error message when login fails', async () => {
     loginMock.mockRejectedValueOnce(new Error('Invalid email or password'));
     renderWithProviders(<LoginScreen />);

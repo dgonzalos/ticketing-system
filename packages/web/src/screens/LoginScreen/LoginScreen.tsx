@@ -1,18 +1,20 @@
 import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Button, Card, Input } from '../../components/ui';
 import { useAuth } from '../../hooks/useAuth';
+import { useAuthRedirect } from '../../hooks/useAuthRedirect';
 import { isValidEmail } from '../../utils/validation';
 import styles from './LoginScreen.module.css';
 
-interface LocationState {
-  from?: { pathname: string };
-}
-
-/** Route container for `/login`. On success, returns the user to wherever `ProtectedRoute` sent them from, or `/`. */
+/**
+ * Route container for `/login`. On success, returns the user to wherever
+ * `ProtectedRoute` sent them from, or `/`. The "Sign up" link forwards this
+ * screen's own location state along, so that redirect target survives a
+ * detour through `/signup` too, not just a login submitted directly here.
+ */
 export function LoginScreen() {
   const { login } = useAuth();
-  const navigate = useNavigate();
+  const redirectAfterAuth = useAuthRedirect();
   const location = useLocation();
 
   const [email, setEmail] = useState('');
@@ -33,8 +35,7 @@ export function LoginScreen() {
     setIsSubmitting(true);
     try {
       await login(email, password);
-      const from = (location.state as LocationState | null)?.from?.pathname ?? '/';
-      navigate(from, { replace: true });
+      redirectAfterAuth();
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -66,7 +67,7 @@ export function LoginScreen() {
           {isSubmitting ? 'Logging in…' : 'Log In'}
         </Button>
         <p className={styles.switchLink}>
-          Don't have an account? <Link to="/signup">Sign up</Link>
+          Don't have an account? <Link to="/signup" state={location.state}>Sign up</Link>
         </p>
       </Card>
     </div>

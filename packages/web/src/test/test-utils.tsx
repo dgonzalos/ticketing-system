@@ -12,6 +12,8 @@ interface RenderWithProvidersOptions {
    * rendered directly with no matched route and `useParams` returns `{}`.
    */
   path?: string;
+  /** Router location state to render with, e.g. `ProtectedRoute`'s `{ from }`. */
+  state?: unknown;
 }
 
 /**
@@ -23,7 +25,7 @@ interface RenderWithProvidersOptions {
  */
 export function renderWithProviders(
   ui: ReactElement,
-  { route = '/', path }: RenderWithProvidersOptions = {}
+  { route = '/', path, state }: RenderWithProvidersOptions = {}
 ): ReturnType<typeof render> {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -39,7 +41,7 @@ export function renderWithProviders(
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[route]}>{content}</MemoryRouter>
+      <MemoryRouter initialEntries={[{ pathname: route, state }]}>{content}</MemoryRouter>
     </QueryClientProvider>
   );
 }

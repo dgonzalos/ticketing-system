@@ -58,6 +58,23 @@ describe('SignupScreen', () => {
     });
   });
 
+  it('returns to the original page and its location state after a redirected signup', async () => {
+    signupMock.mockResolvedValueOnce(undefined);
+    renderWithProviders(<SignupScreen />, {
+      route: '/signup',
+      state: { from: { pathname: '/checkout', search: '', state: { seatIds: ['seat-1'] } } },
+    });
+
+    await fillAndSubmit('buyer@example.com', 'correct-horse-battery', 'correct-horse-battery');
+
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith(
+        { pathname: '/checkout', search: '' },
+        { replace: true, state: { seatIds: ['seat-1'] } }
+      );
+    });
+  });
+
   it('shows an error message when signup fails (e.g. email already registered)', async () => {
     signupMock.mockRejectedValueOnce(new Error('Email already registered: buyer@example.com'));
     renderWithProviders(<SignupScreen />);

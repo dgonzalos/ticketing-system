@@ -9,3 +9,6 @@ build/
 .vscode
 .idea
 pnpm-lock.yaml
+playwright-report/
+test-results/
+blob-report/
