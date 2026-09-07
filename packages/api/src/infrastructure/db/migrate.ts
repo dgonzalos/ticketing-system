@@ -14,7 +14,7 @@
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { db } from './client.js';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -33,8 +33,11 @@ export async function runMigrations() {
   }
 }
 
-// Run migrations if this file is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run migrations if this file is executed directly. Compared as a proper
+// file:// URL (not a raw path) so this also works on Windows, where
+// process.argv[1] uses backslashes and `file://${process.argv[1]}` would
+// never match import.meta.url.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   runMigrations()
     .then(() => {
       console.log('Done');
