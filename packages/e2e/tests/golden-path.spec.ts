@@ -33,7 +33,7 @@ test('guest signs up when prompted, returns to the same performance, and complet
 
   // Regression check for the redirect-state fix: back on *this performance's*
   // seat map, not bounced to '/' and forced to re-navigate from scratch.
-  const seat = page.getByRole('button', { name: 'Seat A1, Available, $150.00' });
+  const seat = page.getByRole('button', { name: 'Seat A1, Available, 150,00 €' });
   await seat.click();
   await expect(page.getByText('1 seat(s) selected')).toBeVisible();
   await page.getByRole('button', { name: 'Checkout' }).click();

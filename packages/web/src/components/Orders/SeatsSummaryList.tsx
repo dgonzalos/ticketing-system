@@ -1,12 +1,9 @@
+import { formatCents } from '../../utils/currency';
 import type { OrderSeatSummary } from './types';
 import styles from './SeatsSummaryList.module.css';
 
 interface SeatsSummaryListProps {
   seats: OrderSeatSummary[];
-}
-
-function formatCents(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
 }
 
 /** Read-only list of seats with their price, shared by the checkout and order-confirmation screens. */

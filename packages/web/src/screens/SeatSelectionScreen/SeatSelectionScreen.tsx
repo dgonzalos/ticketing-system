@@ -3,6 +3,7 @@ import { SeatMap } from '../../components/Seats';
 import { BackLink, Button, Card } from '../../components/ui';
 import { useAuth } from '../../hooks/useAuth';
 import { useSeatSelection } from '../../hooks/useSeatSelection';
+import { formatCents } from '../../utils/currency';
 import styles from './SeatSelectionScreen.module.css';
 
 /** Route container for `/events/:eventId/performances/:performanceId`: the seat-selection flow for one performance. */
@@ -41,7 +42,7 @@ export function SeatSelectionScreen() {
         <Card as="aside" className={styles.summary}>
           <h2>Your selection</h2>
           <p>{selectedSeatIds.length} seat(s) selected</p>
-          <p className={styles.total}>${(totalPrice / 100).toFixed(2)}</p>
+          <p className={styles.total}>{formatCents(totalPrice)}</p>
           {selectError && <p className={styles.error}>{(selectError as Error).message}</p>}
           <Button
             className={styles.summaryButton}

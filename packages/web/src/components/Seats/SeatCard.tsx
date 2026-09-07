@@ -1,3 +1,4 @@
+import { formatCents } from '../../utils/currency';
 import type { SeatCardProps, SeatStatus } from './types';
 import styles from './SeatCard.module.css';
 
@@ -18,14 +19,14 @@ export function SeatCard({ seat, selected, onSelect }: SeatCardProps) {
       className={`${styles.seat} ${styles[seat.status] ?? ''} ${selected ? styles.selected : ''}`}
       disabled={disabled}
       aria-pressed={selected}
-      aria-label={`Seat ${seat.row}${seat.number}, ${STATUS_LABEL[seat.status] ?? seat.status}, $${(seat.price / 100).toFixed(2)}`}
+      aria-label={`Seat ${seat.row}${seat.number}, ${STATUS_LABEL[seat.status] ?? seat.status}, ${formatCents(seat.price)}`}
       onClick={() => onSelect(seat)}
     >
       <span className={styles.label}>
         {seat.row}
         {seat.number}
       </span>
-      <span className={styles.price}>${(seat.price / 100).toFixed(2)}</span>
+      <span className={styles.price}>{formatCents(seat.price)}</span>
     </button>
   );
 }

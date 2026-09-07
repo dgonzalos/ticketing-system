@@ -1,3 +1,4 @@
+import { formatCents } from '../../utils/currency';
 import styles from './PriceSummary.module.css';
 
 interface PriceSummaryProps {
@@ -5,10 +6,6 @@ interface PriceSummaryProps {
   subtotal: number;
   tax: number;
   total: number;
-}
-
-function formatCents(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
 }
 
 /** Subtotal/tax/total breakdown, shared by the checkout and order-confirmation screens. */

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { OrderDto } from '@ticketing-system/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '../../test/test-utils';
+import { formatCents } from '../../utils/currency';
 import { PaymentScreen } from './PaymentScreen';
 
 const navigateMock = vi.fn();
@@ -51,7 +52,10 @@ describe('PaymentScreen', () => {
 
     expect(await screen.findByText('Processing Payment…')).toBeInTheDocument();
     expect(screen.getByText('order-1')).toBeInTheDocument();
-    expect(screen.getByText('Amount: $50.00')).toBeInTheDocument();
+    // getByText's default normalizer collapses the NBSP formatCents() emits
+    // before the euro sign into a plain   space, so match that form.
+    const expectedAmount = `Amount: ${formatCents(5000).replace(/ /, ' ')}`;
+    expect(screen.getByText(expectedAmount)).toBeInTheDocument();
   });
 
   it('confirms payment after the delay and navigates to the success screen', async () => {

@@ -4,14 +4,11 @@ import { BackLink, Button } from '../../components/ui';
 import { useAuth } from '../../hooks/useAuth';
 import { useConfirmPayment } from '../../hooks/useConfirmPayment';
 import { useOrder } from '../../hooks/useOrder';
+import { formatCents } from '../../utils/currency';
 import styles from './PaymentScreen.module.css';
 
 /** How long to show the simulated "processing" state before confirming. */
 const PROCESSING_DELAY_MS = 2500;
-
-function formatCents(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 /**
  * Route container for `/order/:orderId/payment`: the (placeholder) payment
