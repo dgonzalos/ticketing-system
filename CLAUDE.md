@@ -71,6 +71,12 @@ Route containers (screens) live under `web/src/screens/<Route>/`, separate from 
 
 **Whenever a new view/screen is added, check first whether it can reuse an existing primitive from this folder before writing view-specific styling for a button, card, form field, status badge, or similar generic element.** If the element is generic and plausibly reusable, extend or add to `components/ui` rather than styling it inline for that one screen — even if only one call site exists today (`Input` was added this way, ahead of any consumer, because a text-input primitive was clearly going to be needed). If it's genuinely specific to one feature (e.g. `SeatCard`'s seat-status coloring), keep it local to that feature's own folder instead of forcing it into a generic primitive API.
 
+## Currency formatting (`packages/web/src/utils/currency.ts`)
+
+All prices are stored and passed around as integer cents (`seats.price`, `orders`/`order_items`, DTOs) — there is no currency conversion or multi-currency support, just one shared display formatter. `formatCents(cents)` renders EUR in the continental-European style (`150,00 €`: comma decimal separator, `€` after the number with a space) via `Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' })` — `de-DE` and `es-ES` produce identical output for EUR; `de-DE` is used only to avoid implying this is Spain-specific, since Spain, Germany, France, and Italy all share this convention (English-speaking Ireland and the Netherlands don't — `€150.00` and `€ 150,00` respectively).
+
+Always import `formatCents` from this module rather than hand-rolling price formatting — every screen/component that displays a price (`SeatCard`, `SeatSelectionScreen`, `PriceSummary`, `SeatsSummaryList`, `PaymentScreen`) already does this. Note `Intl.NumberFormat` inserts a non-breaking space (U+00A0) before `€`, not a regular space — `getByText`-style test assertions need `.replace(/ /, ' ')` (or an equivalent normalizer) since testing-library's default text normalizer collapses that NBSP to a regular space before comparing.
+
 ## Development conventions
 
 - ESM everywhere — no CommonJS (`require`) in `packages/api/src`.
