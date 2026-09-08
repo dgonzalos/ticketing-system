@@ -5,19 +5,23 @@ import type { OrderSeatSummary } from '../../components/Orders';
 import { Button, Card } from '../../components/ui';
 import { useAuth } from '../../hooks/useAuth';
 import { useOrder } from '../../hooks/useOrder';
+import { usePaymentStatus } from '../../hooks/usePaymentStatus';
 import { useSeats } from '../../hooks/useSeats';
 import styles from './PaymentSuccessScreen.module.css';
 
 /**
- * Route container for `/order/:orderId/payment-success`: the final step of
- * the (placeholder) payment flow, shown once the order has actually
- * transitioned to `completed`.
+ * Route container for `/order/:orderId/payment-success`: shown once
+ * `PaymentScreen`'s polling has confirmed the order is `completed`. Also
+ * re-verifies that status itself on mount (rather than trusting a client
+ * that lands here directly) — a Stripe webhook, not a browser redirect, is
+ * this app's actual source of truth for payment completion.
  */
 export function PaymentSuccessScreen() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const { token } = useAuth();
   const { data: order, isLoading: isOrderLoading, error: orderError } = useOrder(orderId, { token });
+  const { data: paymentStatus, isLoading: isStatusLoading } = usePaymentStatus(orderId, { token, poll: false });
   const { data: seats = [] } = useSeats(order?.performanceId);
 
   const seatSummaries: OrderSeatSummary[] = useMemo(() => {
@@ -31,8 +35,8 @@ export function PaymentSuccessScreen() {
     });
   }, [order, seats]);
 
-  if (isOrderLoading) {
-    return <p className={styles.loading}>Loading order…</p>;
+  if (isOrderLoading || isStatusLoading) {
+    return <p className={styles.loading}>Verifying payment…</p>;
   }
 
   if (orderError || !order) {
@@ -40,6 +44,17 @@ export function PaymentSuccessScreen() {
       <p className={styles.error}>
         Order not found{orderError ? `: ${(orderError as Error).message}` : ''}
       </p>
+    );
+  }
+
+  if (paymentStatus?.status !== 'completed') {
+    return (
+      <div className={styles.screen}>
+        <p className={styles.error}>This order hasn't been marked as paid yet.</p>
+        <Button fullWidth onClick={() => navigate(`/order/${order.id}`)}>
+          Back to Order
+        </Button>
+      </div>
     );
   }
 

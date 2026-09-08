@@ -103,3 +103,22 @@ export class InvalidCredentialsError extends DomainError {
     super('Invalid email or password');
   }
 }
+
+/** Thrown when a Stripe Checkout session cannot be created for an order. */
+export class PaymentInitiationError extends DomainError {
+  constructor(public readonly orderId: string, cause?: unknown) {
+    super(`Failed to initiate payment for order: ${orderId}`);
+    this.cause = cause;
+  }
+}
+
+/**
+ * Thrown when a Stripe Checkout session's payment status can't be verified
+ * as paid, or its `metadata.orderId` doesn't match the order it's being
+ * applied to.
+ */
+export class PaymentVerificationError extends DomainError {
+  constructor(public readonly sessionId: string, public readonly orderId: string) {
+    super(`Could not verify payment for order ${orderId} (session ${sessionId})`);
+  }
+}

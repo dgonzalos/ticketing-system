@@ -1,6 +1,5 @@
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import type { OrderDto } from '@ticketing-system/shared';
+import type { PaymentStatusResponseDto } from '@ticketing-system/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '../../test/test-utils';
 import { formatCents } from '../../utils/currency';
@@ -19,17 +18,7 @@ vi.mock('../../hooks/useAuth', () => ({
 vi.mock('../../services/orderApi');
 import * as orderApi from '../../services/orderApi';
 
-const order: OrderDto = {
-  id: 'order-1',
-  userId: 'dev-user',
-  email: 'buyer@example.com',
-  performanceId: 'perf-1',
-  status: 'payment_processing',
-  totalAmount: 5000,
-  items: [{ seatId: 'seat-1', price: 5000 }],
-  createdAt: '2026-01-01T00:00:00.000Z',
-  paymentRequired: true,
-};
+const processingStatus: PaymentStatusResponseDto = { status: 'payment_processing', totalAmount: 5000 };
 
 function renderPaymentScreen() {
   return renderWithProviders(<PaymentScreen />, {
@@ -39,65 +28,49 @@ function renderPaymentScreen() {
 }
 
 describe('PaymentScreen', () => {
-  beforeEach(() => {
-    vi.mocked(orderApi.getOrder).mockResolvedValue(order);
-  });
-
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it('renders "Processing Payment…" with the order id and amount on mount', async () => {
+  it('renders "Processing Payment…" with the order id and amount while still processing', async () => {
+    vi.mocked(orderApi.getPaymentStatus).mockResolvedValue(processingStatus);
+
     renderPaymentScreen();
 
     expect(await screen.findByText('Processing Payment…')).toBeInTheDocument();
     expect(screen.getByText('order-1')).toBeInTheDocument();
     // getByText's default normalizer collapses the NBSP formatCents() emits
-    // before the euro sign into a plain   space, so match that form.
+    // before the euro sign into a plain space, so match that form.
     const expectedAmount = `Amount: ${formatCents(5000).replace(/ /, ' ')}`;
-    expect(screen.getByText(expectedAmount)).toBeInTheDocument();
+    expect(await screen.findByText(expectedAmount)).toBeInTheDocument();
   });
 
-  it('confirms payment after the delay and navigates to the success screen', async () => {
-    vi.mocked(orderApi.confirmPayment).mockResolvedValue({ ...order, status: 'completed' });
+  it('navigates to the success screen once the webhook marks the order completed', async () => {
+    vi.mocked(orderApi.getPaymentStatus).mockResolvedValue({ status: 'completed', totalAmount: 5000 });
 
     renderPaymentScreen();
-    await screen.findByText('Processing Payment…');
 
-    await waitFor(
-      () => {
-        expect(orderApi.confirmPayment).toHaveBeenCalledWith('order-1', 'test-token');
-      },
-      { timeout: 4000 }
-    );
     await waitFor(() => {
       expect(navigateMock).toHaveBeenCalledWith('/order/order-1/payment-success', { replace: true });
     });
   });
 
-  it('shows an error with Retry and Back to Order when confirmation fails', async () => {
-    vi.mocked(orderApi.confirmPayment).mockRejectedValue(new Error('Payment confirmation failed'));
+  it('navigates back to the order when the webhook cancels it', async () => {
+    vi.mocked(orderApi.getPaymentStatus).mockResolvedValue({ status: 'cancelled', totalAmount: 5000 });
 
     renderPaymentScreen();
-    await screen.findByText('Processing Payment…');
-
-    expect(await screen.findByText('Payment confirmation failed', undefined, { timeout: 4000 })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '← Back to Order' })).toHaveAttribute('href', '/order/order-1');
-  });
-
-  it('re-invokes confirmPayment when Retry is clicked', async () => {
-    vi.mocked(orderApi.confirmPayment).mockRejectedValueOnce(new Error('Payment confirmation failed'));
-
-    renderPaymentScreen();
-    await screen.findByText('Processing Payment…');
-    await screen.findByText('Payment confirmation failed', undefined, { timeout: 4000 });
-
-    vi.mocked(orderApi.confirmPayment).mockResolvedValueOnce({ ...order, status: 'completed' });
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
 
     await waitFor(() => {
-      expect(orderApi.confirmPayment).toHaveBeenCalledTimes(2);
+      expect(navigateMock).toHaveBeenCalledWith('/order/order-1', { replace: true });
     });
+  });
+
+  it('shows an error with a way back when the status check fails', async () => {
+    vi.mocked(orderApi.getPaymentStatus).mockRejectedValue(new Error('Failed to fetch payment status'));
+
+    renderPaymentScreen();
+
+    expect(await screen.findByText('Failed to fetch payment status')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '← Back to Order' })).toHaveAttribute('href', '/order/order-1');
   });
 });

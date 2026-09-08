@@ -5,11 +5,11 @@ import { seatsTable } from './seats.js';
 /**
  * Lifecycle state of an order.
  *
- * `pending` (just created) -> `payment_processing` -> `completed`, or
- * `cancelled` from any pre-`completed` state. Only `pending` is reachable
- * today — the later states are reserved for the Phase 2 payment
- * integration behind the confirmation screen's "Continue to Payment"
- * placeholder.
+ * `pending` (just created) -> `payment_processing` (a Stripe Checkout
+ * session is open) -> `completed` (Stripe webhook confirmed payment), or
+ * `cancelled` from `payment_processing` (the Checkout session expired or
+ * was abandoned — see `webhooks.ts`, which also releases the order's seats
+ * back to `available` on this transition).
  */
 export const orderStatusEnum = pgEnum('order_status', ['pending', 'payment_processing', 'completed', 'cancelled']);
 
@@ -47,6 +47,9 @@ export const ordersTable = pgTable(
 
     /** Total charged, in cents — recalculated server-side from seat prices, never trusted from the client. */
     totalAmount: integer('total_amount').notNull(),
+
+    /** Stripe Checkout Session id for this order's most recent payment attempt, if any. */
+    stripeSessionId: varchar('stripe_session_id', { length: 255 }).unique(),
 
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

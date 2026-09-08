@@ -1,66 +1,63 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BackLink, Button } from '../../components/ui';
 import { useAuth } from '../../hooks/useAuth';
-import { useConfirmPayment } from '../../hooks/useConfirmPayment';
-import { useOrder } from '../../hooks/useOrder';
+import { usePaymentStatus } from '../../hooks/usePaymentStatus';
 import { formatCents } from '../../utils/currency';
 import styles from './PaymentScreen.module.css';
 
-/** How long to show the simulated "processing" state before confirming. */
-const PROCESSING_DELAY_MS = 2500;
+/** ~60s of polling (`usePaymentStatus` polls every 2s) before giving up and offering a manual check instead. */
+const MAX_POLL_ATTEMPTS = 30;
 
 /**
- * Route container for `/order/:orderId/payment`: the (placeholder) payment
- * processing step between initiating payment and its confirmation. Shows a
- * brief simulated "processing" delay, then confirms the payment and moves
- * on — no real payment provider is involved, this is scaffolding for a
- * Phase 2 Stripe/PayPal integration.
+ * Route container for `/order/:orderId/payment`: where Stripe's hosted
+ * Checkout redirects back to after the buyer pays (or cancels). Completing
+ * or cancelling the order is done by a Stripe webhook, not this page — it
+ * only polls `GET /orders/:orderId/payment-status` until that's happened,
+ * then moves on.
  */
 export function PaymentScreen() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const { token } = useAuth();
-  const { data: order, isLoading: isOrderLoading, error: orderError } = useOrder(orderId, { token });
-  const confirmPayment = useConfirmPayment({ token });
+  const [attempts, setAttempts] = useState(0);
+  const timedOut = attempts >= MAX_POLL_ATTEMPTS;
 
-  const confirm = () => {
-    if (!orderId) {
-      return;
-    }
-    confirmPayment.mutate(orderId, {
-      onSuccess: () => navigate(`/order/${orderId}/payment-success`, { replace: true }),
-    });
-  };
+  const { data, dataUpdatedAt, error } = usePaymentStatus(orderId, { token, poll: !timedOut });
 
   useEffect(() => {
-    if (!orderId) {
+    if (dataUpdatedAt) {
+      setAttempts((n) => n + 1);
+    }
+  }, [dataUpdatedAt]);
+
+  useEffect(() => {
+    if (!orderId || !data) {
       return;
     }
-    // No "already started" ref guard: React 18 StrictMode intentionally
-    // mounts -> runs this effect -> cleans it up -> runs it again in dev, to
-    // verify effects are idempotent. A ref-based guard would survive that
-    // cleanup and block the second (real) run, so the timer would never
-    // actually fire in dev. Cleanup + a fresh setTimeout on every real
-    // mount is the correct, StrictMode-safe pattern here.
-    const timer = setTimeout(confirm, PROCESSING_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [orderId]);
+    if (data.status === 'completed') {
+      navigate(`/order/${orderId}/payment-success`, { replace: true });
+    } else if (data.status === 'cancelled') {
+      navigate(`/order/${orderId}`, { replace: true });
+    }
+  }, [data, orderId, navigate]);
 
-  if (isOrderLoading) {
-    return <p className={styles.loading}>Loading order…</p>;
-  }
-
-  if (orderError || !order) {
-    return <p className={styles.error}>Order not found{orderError ? `: ${(orderError as Error).message}` : ''}</p>;
-  }
-
-  if (confirmPayment.error) {
+  if (error) {
     return (
       <div className={styles.screen}>
-        <p className={styles.error}>{(confirmPayment.error as Error).message}</p>
-        <Button fullWidth onClick={confirm}>
-          Retry
+        <p className={styles.error}>{(error as Error).message}</p>
+        <BackLink to={`/order/${orderId}`}>Back to Order</BackLink>
+      </div>
+    );
+  }
+
+  if (timedOut) {
+    return (
+      <div className={styles.screen}>
+        <h1 className={styles.heading}>Still processing…</h1>
+        <p className={styles.meta}>This is taking longer than usual. You can check again, or come back to this page later.</p>
+        <Button fullWidth onClick={() => setAttempts(0)}>
+          Check again
         </Button>
         <BackLink to={`/order/${orderId}`}>Back to Order</BackLink>
       </div>
@@ -71,9 +68,9 @@ export function PaymentScreen() {
     <div className={styles.screen}>
       <h1 className={styles.heading}>Processing Payment…</h1>
       <p className={styles.meta}>
-        Order ID: <span className={styles.orderId}>{order.id}</span>
+        Order ID: <span className={styles.orderId}>{orderId}</span>
       </p>
-      <p className={styles.meta}>Amount: {formatCents(order.totalAmount)}</p>
+      {data && <p className={styles.meta}>Amount: {formatCents(data.totalAmount)}</p>}
     </div>
   );
 }

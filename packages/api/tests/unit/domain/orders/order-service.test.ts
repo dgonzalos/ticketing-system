@@ -9,6 +9,9 @@ function createMockOrderRepository(): IOrderRepository {
     createOrder: vi.fn(),
     findOrderById: vi.fn(),
     updateOrderStatus: vi.fn(),
+    recordStripeSessionAndAdvance: vi.fn(),
+    releaseSeatsForOrder: vi.fn(),
+    cancelIfCurrentSession: vi.fn(),
   };
 }
 
@@ -111,71 +114,5 @@ describe('OrderService', () => {
     const service = new OrderService(orderRepository, eventRepository);
 
     await expect(service.findOrderById('order-ghost')).resolves.toBeNull();
-  });
-
-  describe('initiatePayment', () => {
-    it('transitions a pending order to payment_processing and returns a mock payment URL', async () => {
-      const orderRepository = createMockOrderRepository();
-      const eventRepository = createMockEventRepository();
-      const processingOrder: Order = { ...order, status: 'payment_processing' };
-      (orderRepository.updateOrderStatus as ReturnType<typeof vi.fn>).mockResolvedValueOnce(processingOrder);
-      const service = new OrderService(orderRepository, eventRepository);
-
-      await expect(service.initiatePayment('order-1')).resolves.toEqual({
-        order: processingOrder,
-        paymentUrl: '/order/order-1/payment',
-      });
-      expect(orderRepository.updateOrderStatus).toHaveBeenCalledWith('order-1', 'pending', 'payment_processing');
-    });
-
-    it('returns null when the order is not pending (or does not exist)', async () => {
-      const orderRepository = createMockOrderRepository();
-      const eventRepository = createMockEventRepository();
-      (orderRepository.updateOrderStatus as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
-      const service = new OrderService(orderRepository, eventRepository);
-
-      await expect(service.initiatePayment('order-1')).resolves.toBeNull();
-    });
-  });
-
-  describe('completePayment', () => {
-    it('transitions a payment_processing order to completed without an extra lookup', async () => {
-      const orderRepository = createMockOrderRepository();
-      const eventRepository = createMockEventRepository();
-      const completedOrder: Order = { ...order, status: 'completed' };
-      (orderRepository.updateOrderStatus as ReturnType<typeof vi.fn>).mockResolvedValueOnce(completedOrder);
-      const service = new OrderService(orderRepository, eventRepository);
-
-      await expect(service.completePayment('order-1')).resolves.toEqual(completedOrder);
-      expect(orderRepository.updateOrderStatus).toHaveBeenCalledWith('order-1', 'payment_processing', 'completed');
-      // The atomic update succeeded on the first try, so there's no reason
-      // to pay for a second round trip re-reading the order.
-      expect(orderRepository.findOrderById).not.toHaveBeenCalled();
-    });
-
-    it('is idempotent: falls back to the existing order when a concurrent call already completed it', async () => {
-      const orderRepository = createMockOrderRepository();
-      const eventRepository = createMockEventRepository();
-      const completedOrder: Order = { ...order, status: 'completed' };
-      // Simulates losing a race to a concurrent completePayment call: the
-      // atomic transition finds no matching row (status is no longer
-      // payment_processing), so this call re-checks and finds it already
-      // completed rather than surfacing a false conflict.
-      (orderRepository.updateOrderStatus as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
-      (orderRepository.findOrderById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(completedOrder);
-      const service = new OrderService(orderRepository, eventRepository);
-
-      await expect(service.completePayment('order-1')).resolves.toEqual(completedOrder);
-    });
-
-    it('returns null when the order is not payment_processing (and not completed)', async () => {
-      const orderRepository = createMockOrderRepository();
-      const eventRepository = createMockEventRepository();
-      (orderRepository.findOrderById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(order); // status: 'pending'
-      (orderRepository.updateOrderStatus as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
-      const service = new OrderService(orderRepository, eventRepository);
-
-      await expect(service.completePayment('order-1')).resolves.toBeNull();
-    });
   });
 });

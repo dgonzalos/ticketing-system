@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { OrderDto } from '@ticketing-system/shared';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { OrderDto, PaymentStatusResponseDto } from '@ticketing-system/shared';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '../../test/test-utils';
 import { PaymentSuccessScreen } from './PaymentSuccessScreen';
 
@@ -28,8 +28,9 @@ const order: OrderDto = {
   totalAmount: 5000,
   items: [{ seatId: 'seat-1', price: 5000 }],
   createdAt: '2026-01-01T00:00:00.000Z',
-  paymentRequired: true,
 };
+
+const completedStatus: PaymentStatusResponseDto = { status: 'completed', totalAmount: 5000 };
 
 function renderPaymentSuccessScreen() {
   return renderWithProviders(<PaymentSuccessScreen />, {
@@ -43,8 +44,9 @@ describe('PaymentSuccessScreen', () => {
     vi.clearAllMocks();
   });
 
-  it('renders the completed order once it loads', async () => {
+  it('renders the completed order once payment status is verified', async () => {
     vi.mocked(orderApi.getOrder).mockResolvedValue(order);
+    vi.mocked(orderApi.getPaymentStatus).mockResolvedValue(completedStatus);
 
     renderPaymentSuccessScreen();
 
@@ -56,6 +58,7 @@ describe('PaymentSuccessScreen', () => {
 
   it('navigates home when "Back to Events" is clicked', async () => {
     vi.mocked(orderApi.getOrder).mockResolvedValue(order);
+    vi.mocked(orderApi.getPaymentStatus).mockResolvedValue(completedStatus);
 
     renderPaymentSuccessScreen();
     await screen.findByText('✅ Payment Complete!');
@@ -65,12 +68,23 @@ describe('PaymentSuccessScreen', () => {
     expect(navigateMock).toHaveBeenCalledWith('/');
   });
 
+  it('shows a not-yet-paid message instead of the success view when status is not completed', async () => {
+    vi.mocked(orderApi.getOrder).mockResolvedValue({ ...order, status: 'payment_processing' });
+    vi.mocked(orderApi.getPaymentStatus).mockResolvedValue({ status: 'payment_processing', totalAmount: 5000 });
+
+    renderPaymentSuccessScreen();
+
+    expect(await screen.findByText("This order hasn't been marked as paid yet.")).toBeInTheDocument();
+    expect(screen.queryByText('✅ Payment Complete!')).not.toBeInTheDocument();
+  });
+
   it(
     'shows a not-found message when the order fetch fails',
     async () => {
       // useOrder hardcodes retry: 2 with backoff, so a rejected fetch takes a
       // few seconds (two retries) to actually surface as an error.
       vi.mocked(orderApi.getOrder).mockRejectedValue(new Error('Order not found: order-1'));
+      vi.mocked(orderApi.getPaymentStatus).mockResolvedValue(completedStatus);
 
       renderPaymentSuccessScreen();
 

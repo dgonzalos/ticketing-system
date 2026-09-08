@@ -1,7 +1,7 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { OrderDto } from '@ticketing-system/shared';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '../../test/test-utils';
 import { OrderConfirmationScreen } from './OrderConfirmationScreen';
 
@@ -28,7 +28,6 @@ const order: OrderDto = {
   totalAmount: 5000,
   items: [{ seatId: 'seat-1', price: 5000 }],
   createdAt: '2026-01-01T00:00:00.000Z',
-  paymentRequired: true,
 };
 
 function renderOrderConfirmationScreen() {
@@ -39,14 +38,25 @@ function renderOrderConfirmationScreen() {
 }
 
 describe('OrderConfirmationScreen', () => {
-  afterEach(() => {
-    vi.clearAllMocks();
+  const originalLocation = window.location;
+
+  beforeEach(() => {
+    // `window.location.href = ...` triggers a real navigation in jsdom
+    // unless location itself is replaced with a plain, writable stand-in.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (window as any).location;
+    (window as unknown as { location: Location }).location = { ...originalLocation, href: '' };
   });
 
-  it('calls initiatePayment and navigates to the returned paymentUrl on click', async () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    (window as unknown as { location: Location }).location = originalLocation;
+  });
+
+  it('calls initiatePayment and redirects the browser to the real Stripe checkout URL', async () => {
     vi.mocked(orderApi.getOrder).mockResolvedValue(order);
     vi.mocked(orderApi.initiatePayment).mockResolvedValue({
-      paymentUrl: '/order/order-1/payment',
+      paymentUrl: 'https://checkout.stripe.com/c/pay/cs_test_123',
       orderId: 'order-1',
       status: 'payment_processing',
     });
@@ -58,8 +68,10 @@ describe('OrderConfirmationScreen', () => {
 
     await waitFor(() => {
       expect(orderApi.initiatePayment).toHaveBeenCalledWith('order-1', 'test-token');
-      expect(navigateMock).toHaveBeenCalledWith('/order/order-1/payment');
+      expect(window.location.href).toBe('https://checkout.stripe.com/c/pay/cs_test_123');
     });
+    // A real external redirect, not client-side routing.
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 
   it('shows an error and re-enables the button when initiatePayment fails', async () => {
@@ -73,11 +85,16 @@ describe('OrderConfirmationScreen', () => {
 
     expect(await screen.findByText('Order is not in pending status')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Continue to Payment' })).not.toBeDisabled();
-    expect(navigateMock).not.toHaveBeenCalled();
+    expect(window.location.href).toBe('');
   });
 
   it('offers to resume payment instead of Continue to Payment when already payment_processing', async () => {
     vi.mocked(orderApi.getOrder).mockResolvedValue({ ...order, status: 'payment_processing' });
+    vi.mocked(orderApi.initiatePayment).mockResolvedValue({
+      paymentUrl: 'https://checkout.stripe.com/c/pay/cs_test_456',
+      orderId: 'order-1',
+      status: 'payment_processing',
+    });
 
     renderOrderConfirmationScreen();
     await screen.findByText('Resume Payment');
@@ -86,8 +103,10 @@ describe('OrderConfirmationScreen', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Resume Payment' }));
 
-    expect(navigateMock).toHaveBeenCalledWith('/order/order-1/payment');
-    expect(orderApi.initiatePayment).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(orderApi.initiatePayment).toHaveBeenCalledWith('order-1', 'test-token');
+      expect(window.location.href).toBe('https://checkout.stripe.com/c/pay/cs_test_456');
+    });
   });
 
   it('offers to view the payment confirmation instead of Continue to Payment when already completed', async () => {

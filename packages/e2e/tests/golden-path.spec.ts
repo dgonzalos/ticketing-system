@@ -6,8 +6,17 @@ import { expect, test } from '@playwright/test';
  * is prompted to authenticate (seat selection is protected — see App.tsx's
  * routes), and lands back on that *same* performance's seat map rather than
  * the events homepage — exercising `useAuthRedirect`'s fix for `SignupScreen`
- * previously discarding the redirect target entirely. Then completes the
- * (placeholder) purchase as the now-authenticated user.
+ * previously discarding the redirect target entirely. Then starts checkout
+ * as the now-authenticated user, up through the redirect to Stripe's real
+ * hosted Checkout page.
+ *
+ * Deliberately stops there rather than completing a purchase on Stripe's
+ * own page: actually finishing payment there and waiting for the resulting
+ * webhook to land back on this app would mean driving a third-party UI this
+ * suite doesn't control, plus running `stripe listen` (or an equivalent
+ * forwarder) alongside every e2e run — a much bigger addition to this
+ * harness (see CLAUDE.md's "no CI yet, no Docker" scoping) than verifying
+ * checkout actually reaches Stripe.
  */
 test('guest signs up when prompted, returns to the same performance, and completes a purchase', async ({ page }) => {
   const email = `e2e-${Date.now()}@example.com`;
@@ -46,9 +55,7 @@ test('guest signs up when prompted, returns to the same performance, and complet
   await expect(page.getByRole('heading', { name: 'Order Summary' })).toBeVisible();
   await page.getByRole('button', { name: 'Continue to Payment' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Processing Payment…' })).toBeVisible();
-  await page.waitForURL(/\/payment-success$/, { timeout: 10_000 });
-
-  await expect(page.getByRole('heading', { name: '✅ Payment Complete!' })).toBeVisible();
-  await expect(page.getByText('Status: completed')).toBeVisible();
+  // A real external redirect to Stripe's hosted Checkout — not a route
+  // inside this app — so this is as far as this suite drives the flow.
+  await page.waitForURL(/^https:\/\/checkout\.stripe\.com\//, { timeout: 10_000 });
 });

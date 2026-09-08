@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-`ticketing-system` is a pnpm monorepo for a ticketing platform (events, seats, orders). It's a working MVP: the full guest flow (browse events → pick a performance → select seats → checkout → placeholder payment → confirmation) runs end-to-end, backed by real Argon2 password auth, race-safe seat locking, atomic checkout transactions, and populated test suites in both `packages/api` and `packages/web`. Payment is still a placeholder (no real provider integrated yet) and Claude API integration hasn't started — see "Guidelines for adding features" and the notes throughout this file for what's still open.
+`ticketing-system` is a pnpm monorepo for a ticketing platform (events, seats, orders). It's a working MVP: the full guest flow (browse events → pick a performance → select seats → checkout → real Stripe Checkout payment → confirmation) runs end-to-end, backed by real Argon2 password auth, race-safe seat locking, atomic checkout transactions, a webhook-driven payment flow (see "Payments (Stripe)" below), and populated test suites in both `packages/api` and `packages/web`. Claude API integration hasn't started — see "Guidelines for adding features" and the notes throughout this file for what's still open.
 
 ## Tech stack
 
@@ -23,15 +23,17 @@ packages/
   api/            @ticketing/api — Fastify backend
     src/
       index.ts              server entrypoint (plugin registration, domain wiring, routes, health check)
-      api/routes/           HTTP route handlers — auth.ts, events.ts, orders.ts, seats.ts (14 endpoints total)
+      api/routes/           HTTP route handlers — auth.ts, events.ts, orders.ts, payments.ts, seats.ts, webhooks.ts (14 endpoints total)
       domain/                business logic, one subfolder per bounded context
         seats/                seat-lock.ts (SeatLockManager), seat.repository.ts (ISeatRepository) — seat.service.ts exists but is an empty, unused stub
         events/               event-catalog.ts (EventCatalog), event.repository.ts (IEventRepository)
         orders/               order-service.ts (OrderService), order.repository.ts (IOrderRepository)
+        payments/             payment.service.ts (IPaymentService) — see "Payments (Stripe)" below
         users/                user-service.ts (UserService), user.repository.ts (IUserRepository), token-signer.ts
         common/errors/        domain-errors.ts — shared domain error types
       infrastructure/
         db/                  Drizzle client/schema/migrations, seed.ts, and drizzle-*.repository.ts implementations of the interfaces above
+        payment/              stripe-config.ts, stripe-payment.service.ts (StripePaymentService, implements IPaymentService)
         config/              env/config loading (not scaffolded yet — still empty)
     tests/
       unit/                  real, populated vitest suites (routes + domain); integration/ still unused
@@ -77,6 +79,20 @@ All prices are stored and passed around as integer cents (`seats.price`, `orders
 
 Always import `formatCents` from this module rather than hand-rolling price formatting — every screen/component that displays a price (`SeatCard`, `SeatSelectionScreen`, `PriceSummary`, `SeatsSummaryList`, `PaymentScreen`) already does this. Note `Intl.NumberFormat` inserts a non-breaking space (U+00A0) before `€`, not a regular space — `getByText`-style test assertions need `.replace(/ /, ' ')` (or an equivalent normalizer) since testing-library's default text normalizer collapses that NBSP to a regular space before comparing.
 
+## Payments (Stripe)
+
+Real Stripe Checkout, test mode — **hosted redirect, not embedded Stripe Elements**. `OrderConfirmationScreen` calls `POST /orders/:orderId/payment-session` (`packages/api/src/api/routes/payments.ts`), which creates a Stripe Checkout Session server-side (amount always taken from the order's own `totalAmount`, never a client-supplied value) and returns a real `checkout.stripe.com` URL. The frontend does a full `window.location.href` redirect, not React Router `navigate` — client-side routing can't leave the SPA. Because Stripe hosts the entire payment form and card data never touches this app's own pages, no Stripe.js/`@stripe/react-stripe-js` is needed on the frontend — don't add it without a real reason to switch to embedded Elements.
+
+**`POST /webhooks/stripe` (`packages/api/src/api/routes/webhooks.ts`) is the only code path that ever marks an order `completed` or `cancelled`** — no client-facing route does either. It re-verifies payment status against Stripe's API directly (`stripe.checkout.sessions.retrieve`) rather than trusting the event payload's own claimed fields, so a correctly-signed-but-tampered event can't fake a payment. `checkout.session.completed` completes the order; `checkout.session.expired` cancels it and releases its seats back to `available` — seats are marked `sold` at order-creation time, not on payment completion (see `domain/orders/order.repository.ts`'s doc comments), so this is a real revert, not just a status flip.
+
+Since the frontend can't observe a server-to-server webhook call, `PaymentScreen` polls `GET /orders/:orderId/payment-status` every 2s (`hooks/usePaymentStatus.ts`) waiting for the webhook to land, capped at ~30 attempts with a manual-retry fallback rather than polling forever. `PaymentSuccessScreen` does one more status check on its own mount before rendering success — landing on that URL isn't itself proof of payment.
+
+Two gotchas worth knowing before touching this code:
+- `fastify-raw-body` (registered in `index.ts`) uses `global: false` — only `/webhooks/stripe` gets `request.rawBody`, via `{ config: { rawBody: true } }` on that route specifically. Skip that per-route opt-in and `request.rawBody` is `undefined`, so Stripe's signature verification silently fails on every delivery.
+- All order status transitions reuse the existing guarded `IOrderRepository.updateOrderStatus(orderId, fromStatus, toStatus)` (`WHERE status = fromStatus`) — never add an ungated version. That guard is what makes a duplicate webhook delivery (Stripe delivers at-least-once) a safe no-op instead of a race.
+
+Env vars live in the root `.env`: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `FRONTEND_URL` (used to build the Checkout session's `success_url`/`cancel_url`). `STRIPE_PUBLISHABLE_KEY` is also there but currently unused by any code — nothing needs it without embedded Stripe.js. `STRIPE_WEBHOOK_SECRET` is empty until `stripe listen --forward-to localhost:3000/webhooks/stripe` (or a real deployed endpoint) provides one; the server logs a warning but still starts without it, and webhook deliveries just fail signature verification (400) until it's set.
+
 ## Development conventions
 
 - ESM everywhere — no CommonJS (`require`) in `packages/api/src`.
@@ -88,7 +104,8 @@ Always import `formatCents` from this module rather than hand-rolling price form
 
 - `packages/api` (`tests/unit`) and `packages/web` (co-located `*.test.tsx` next to each screen/component) both have real, populated vitest suites now — pattern-match against those rather than starting from scratch. `packages/api/tests/integration` is still unused.
 - Run a package's tests with `pnpm --filter @ticketing/api test` / `pnpm --filter @ticketing/web test` (there is no root-level test aggregation). Run these to see current pass/fail counts rather than trusting a number written down here — that's exactly the kind of claim that goes stale.
-- `packages/e2e` has one Playwright golden-path spec (signup → seat selection → checkout → placeholder payment → confirmation). `pnpm --filter @ticketing-system/e2e test` runs `scripts/run-e2e.ts`, which creates a uniquely-named Postgres database, runs migrations and the seed script against it, runs Playwright, then drops the database — win or fail. E2E runs no longer touch or pollute the shared dev database (`ticketing_dev`). No Docker is used or planned here — a per-run database already solves the isolation problem, and there's no CI yet to justify the added complexity. If `scripts/run-e2e.ts` fails to create its database, check `E2E_ADMIN_DATABASE_URL` in `.env`: the app's normal DB role may not have `CREATEDB`.
+- `packages/e2e` has one Playwright golden-path spec (signup → seat selection → checkout → redirect to real Stripe Checkout). `pnpm --filter @ticketing-system/e2e test` runs `scripts/run-e2e.ts`, which creates a uniquely-named Postgres database, runs migrations and the seed script against it, runs Playwright, then drops the database — win or fail. E2E runs no longer touch or pollute the shared dev database (`ticketing_dev`). No Docker is used or planned here — a per-run database already solves the isolation problem, and there's no CI yet to justify the added complexity. If `scripts/run-e2e.ts` fails to create its database, check `E2E_ADMIN_DATABASE_URL` in `.env`: the app's normal DB role may not have `CREATEDB`.
+- The golden-path spec deliberately stops at the Stripe redirect rather than completing a purchase — actually finishing payment on Stripe's own hosted page and waiting for the resulting webhook would mean driving a third-party UI this suite doesn't control, plus running `stripe listen` (or an equivalent forwarder) alongside every e2e run. See the spec's own doc comment, and "Payments (Stripe)" below, for the full flow this only partially exercises.
 
 ## Package scripts
 

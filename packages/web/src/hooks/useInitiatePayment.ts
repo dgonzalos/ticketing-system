@@ -7,9 +7,11 @@ interface UseInitiatePaymentOptions {
 }
 
 /**
- * Starts the (placeholder) payment flow for a pending order. On success,
- * seeds `useOrder`'s query cache with the order's new `payment_processing`
- * status so `PaymentScreen` doesn't need an extra round trip to see it.
+ * Starts (or resumes) a hosted Stripe Checkout session for an order. On
+ * success, seeds `useOrder`'s query cache with the order's new
+ * `payment_processing` status; the caller is responsible for the actual
+ * redirect (`window.location.href = result.paymentUrl`), since this leaves
+ * the SPA entirely.
  */
 export function useInitiatePayment({ token }: UseInitiatePaymentOptions) {
   const queryClient = useQueryClient();

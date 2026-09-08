@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import {
   OrderPriceMismatchError,
@@ -61,6 +61,7 @@ function toOrder(orderRow: OrderRow, itemRows: OrderItemRow[]): Order {
     totalAmount: orderRow.totalAmount,
     items: itemRows.map((item) => ({ seatId: item.seatId, price: item.price })),
     createdAt: orderRow.createdAt,
+    stripeSessionId: orderRow.stripeSessionId,
   };
 }
 
@@ -141,5 +142,62 @@ export class DrizzleOrderRepository implements IOrderRepository {
     const itemRows = await this.db.select().from(schema.orderItemsTable).where(eq(schema.orderItemsTable.orderId, orderId));
 
     return toOrder(orderRow, itemRows);
+  }
+
+  async recordStripeSessionAndAdvance(orderId: string, fromStatus: OrderStatus, stripeSessionId: string): Promise<Order | null> {
+    const [orderRow] = await this.db
+      .update(schema.ordersTable)
+      .set({ stripeSessionId, status: 'payment_processing', updatedAt: new Date() })
+      .where(and(eq(schema.ordersTable.id, orderId), eq(schema.ordersTable.status, fromStatus)))
+      .returning();
+
+    if (!orderRow) {
+      return null;
+    }
+
+    const itemRows = await this.db.select().from(schema.orderItemsTable).where(eq(schema.orderItemsTable.orderId, orderId));
+
+    return toOrder(orderRow, itemRows);
+  }
+
+  async cancelIfCurrentSession(orderId: string, expectedStripeSessionId: string): Promise<Order | null> {
+    const [orderRow] = await this.db
+      .update(schema.ordersTable)
+      .set({ status: 'cancelled', updatedAt: new Date() })
+      .where(
+        and(
+          eq(schema.ordersTable.id, orderId),
+          eq(schema.ordersTable.status, 'payment_processing'),
+          eq(schema.ordersTable.stripeSessionId, expectedStripeSessionId)
+        )
+      )
+      .returning();
+
+    if (!orderRow) {
+      return null;
+    }
+
+    const itemRows = await this.db.select().from(schema.orderItemsTable).where(eq(schema.orderItemsTable.orderId, orderId));
+
+    return toOrder(orderRow, itemRows);
+  }
+
+  async releaseSeatsForOrder(orderId: string): Promise<void> {
+    await this.db.transaction(async (tx: DbTransaction) => {
+      const items = await tx
+        .select({ seatId: schema.orderItemsTable.seatId })
+        .from(schema.orderItemsTable)
+        .where(eq(schema.orderItemsTable.orderId, orderId));
+
+      const seatIds = items.map((item) => item.seatId);
+      if (seatIds.length === 0) {
+        return;
+      }
+
+      await tx
+        .update(schema.seatsTable)
+        .set({ status: 'available', reservedUntil: null, reservedBy: null, updatedAt: new Date() })
+        .where(and(inArray(schema.seatsTable.id, seatIds), eq(schema.seatsTable.status, 'sold')));
+    });
   }
 }

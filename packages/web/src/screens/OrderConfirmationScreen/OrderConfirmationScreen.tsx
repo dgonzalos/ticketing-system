@@ -66,7 +66,7 @@ export function OrderConfirmationScreen() {
         <p className={styles.meta}>Status: {order.status}</p>
         <SeatsSummaryList seats={seatSummaries} />
         <PriceSummary subtotal={subtotal} tax={tax} total={order.totalAmount} />
-        {order.status === 'pending' && (
+        {(order.status === 'pending' || order.status === 'payment_processing') && (
           <>
             {initiatePayment.error && (
               <p className={styles.error}>{(initiatePayment.error as Error).message}</p>
@@ -76,18 +76,21 @@ export function OrderConfirmationScreen() {
               disabled={initiatePayment.isPending}
               onClick={() =>
                 initiatePayment.mutate(order.id, {
-                  onSuccess: (result) => navigate(result.paymentUrl),
+                  // A real Stripe-hosted URL — this leaves the SPA entirely,
+                  // so a client-side `navigate()` can't be used here.
+                  onSuccess: (result) => {
+                    window.location.href = result.paymentUrl;
+                  },
                 })
               }
             >
-              {initiatePayment.isPending ? 'Starting payment…' : 'Continue to Payment'}
+              {initiatePayment.isPending
+                ? 'Starting payment…'
+                : order.status === 'payment_processing'
+                  ? 'Resume Payment'
+                  : 'Continue to Payment'}
             </Button>
           </>
-        )}
-        {order.status === 'payment_processing' && (
-          <Button fullWidth onClick={() => navigate(`/order/${order.id}/payment`)}>
-            Resume Payment
-          </Button>
         )}
         {order.status === 'completed' && (
           <Button fullWidth onClick={() => navigate(`/order/${order.id}/payment-success`)}>

@@ -2,10 +2,13 @@ import Fastify from 'fastify';
 import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
 import fastifyJwt from '@fastify/jwt';
+import fastifyRawBody from 'fastify-raw-body';
 import { authRoutes } from './api/routes/auth.js';
 import { eventsRoutes } from './api/routes/events.js';
 import { ordersRoutes } from './api/routes/orders.js';
+import { paymentsRoutes } from './api/routes/payments.js';
 import { seatsRoutes } from './api/routes/seats.js';
+import { webhooksRoutes } from './api/routes/webhooks.js';
 import { EventCatalog } from './domain/events/event-catalog.js';
 import { OrderService } from './domain/orders/order-service.js';
 import { SeatLockManager } from './domain/seats/seat-lock.js';
@@ -17,11 +20,27 @@ import { DrizzleSeatRepository } from './infrastructure/db/drizzle-seat.reposito
 import { DrizzleUserRepository } from './infrastructure/db/drizzle-user.repository.js';
 import { runMigrations } from './infrastructure/db/migrate.js';
 import { jwtTokenSigner } from './infrastructure/auth/jwt.js';
+import { createStripeClient } from './infrastructure/payment/stripe-config.js';
+import { StripePaymentService } from './infrastructure/payment/stripe-payment.service.js';
 
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is required');
+}
+
+const FRONTEND_URL = process.env.FRONTEND_URL;
+if (!FRONTEND_URL) {
+  throw new Error('FRONTEND_URL environment variable is required');
+}
+
+// Not required at startup: empty until `stripe listen` (or a configured
+// production endpoint) provides one. Until then, any webhook delivery
+// simply fails signature verification (400) rather than being trusted —
+// it doesn't block Phase 1 testing, which never hits this route.
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? '';
+if (!STRIPE_WEBHOOK_SECRET) {
+  console.warn('⚠️  STRIPE_WEBHOOK_SECRET is not set — Stripe webhook deliveries will fail signature verification');
 }
 
 // Run migrations before starting server
@@ -34,6 +53,15 @@ const app = Fastify({
 // Plugins
 await app.register(helmet);
 await app.register(cors, { origin: '*' });
+
+/**
+ * Raw body capture for Stripe webhook signature verification. `global:
+ * false` means no route gets `request.rawBody` unless it opts in via
+ * `{ config: { rawBody: true } }` (see `webhooks.ts`) — without that,
+ * `request.rawBody` is `undefined` and `stripe.webhooks.constructEvent`
+ * always fails.
+ */
+await app.register(fastifyRawBody, { field: 'rawBody', global: false });
 
 /**
  * Auth flow:
@@ -71,11 +99,16 @@ const orderRepository = new DrizzleOrderRepository(db);
 const orderService = new OrderService(orderRepository, eventRepository);
 const userRepository = new DrizzleUserRepository(db);
 const userService = new UserService(userRepository, jwtTokenSigner);
+const stripeClient = createStripeClient();
+const paymentService = new StripePaymentService(stripeClient, orderRepository, eventRepository, FRONTEND_URL);
+console.log('Stripe initialized in test mode');
 
 // Routes
 await app.register(seatsRoutes, { seatLockManager });
 await app.register(eventsRoutes, { eventCatalog });
 await app.register(ordersRoutes, { orderService });
+await app.register(paymentsRoutes, { paymentService, orderService });
+await app.register(webhooksRoutes, { stripe: stripeClient, webhookSecret: STRIPE_WEBHOOK_SECRET, paymentService });
 await app.register(authRoutes, { userService });
 
 // Health check

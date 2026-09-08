@@ -81,8 +81,6 @@ export interface OrderDto {
   items: OrderItemDto[];
   /** ISO 8601 timestamp. */
   createdAt: string;
-  /** Always true today — Phase 2 payment integration isn't wired up yet. */
-  paymentRequired: boolean;
 }
 
 /** Request body for the API's `POST /orders`. */
@@ -96,14 +94,25 @@ export interface CreateOrderRequestDto {
 
 /**
  * Wire shape returned by the API's `POST /orders/:orderId/payment-session`
- * (see `packages/api/src/api/routes/orders.ts`). `paymentUrl` is a
- * placeholder in Phase 1 (an in-app route) and will become a real external
- * provider checkout URL in Phase 2.
+ * (see `packages/api/src/api/routes/payments.ts`). `paymentUrl` is a real
+ * Stripe-hosted Checkout URL — the client should do a full browser
+ * redirect (`window.location.href = paymentUrl`), not client-side routing.
  */
 export interface PaymentSessionResponseDto {
   paymentUrl: string;
   orderId: string;
   status: 'payment_processing';
+}
+
+/**
+ * Wire shape returned by the API's `GET /orders/:orderId/payment-status`
+ * (see `packages/api/src/api/routes/payments.ts`). Polled by the frontend
+ * while a Stripe webhook settles payment asynchronously.
+ */
+export interface PaymentStatusResponseDto {
+  status: OrderStatus;
+  /** Total charged, in cents. */
+  totalAmount: number;
 }
 
 /**

@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z, ZodError } from 'zod';
-import type { CreateOrderRequestDto, OrderDto, PaymentSessionResponseDto } from '@ticketing-system/shared';
+import type { CreateOrderRequestDto, OrderDto } from '@ticketing-system/shared';
 import {
   OrderPriceMismatchError,
   OrderSeatConflictError,
@@ -32,7 +32,6 @@ function toOrderResponse(order: Order): OrderDto {
     totalAmount: order.totalAmount,
     items: order.items,
     createdAt: order.createdAt.toISOString(),
-    paymentRequired: true,
   };
 }
 
@@ -152,92 +151,6 @@ export const ordersRoutes: FastifyPluginAsync<OrdersRoutesOptions> = async (app,
       }
 
       return reply.code(200).send(toOrderResponse(order));
-    }
-  );
-
-  /**
-   * POST /orders/:orderId/payment-session
-   *
-   * Starts the (placeholder) payment flow for a `pending` order: transitions
-   * it to `payment_processing` and returns a mock payment URL to redirect
-   * the client to. No real payment provider is involved yet — this is
-   * scaffolding for a Phase 2 Stripe/PayPal integration.
-   *
-   * Auth: required (Bearer JWT, verified by `app.authenticate`).
-   * Responses: 200 with `{ paymentUrl, orderId, status }`, 400 for an
-   * invalid orderId, 401 if unauthenticated, 403 if the order belongs to a
-   * different user, 404 if it does not exist, 409 if it isn't `pending`.
-   */
-  app.post<{ Params: OrderIdParams; Reply: PaymentSessionResponseDto | ErrorResponse }>(
-    '/orders/:orderId/payment-session',
-    { onRequest: [app.authenticate] },
-    async (request, reply) => {
-      const { orderId } = request.params;
-      if (!isValidOrderId(orderId)) {
-        return reply.code(400).send({ error: 'Invalid orderId' });
-      }
-
-      const order = await orderService.findOrderById(orderId);
-      if (!order) {
-        return reply.code(404).send({ error: `Order not found: ${orderId}` });
-      }
-      if (order.userId !== request.user.userId) {
-        return reply.code(403).send({ error: 'This order belongs to a different user' });
-      }
-      if (order.status !== 'pending') {
-        return reply.code(409).send({ error: 'Order is not in pending status' });
-      }
-
-      const result = await orderService.initiatePayment(orderId);
-      if (!result) {
-        // Status changed between the check above and the atomic update below.
-        return reply.code(409).send({ error: 'Order is not in pending status' });
-      }
-
-      return reply.code(200).send({ paymentUrl: result.paymentUrl, orderId, status: 'payment_processing' });
-    }
-  );
-
-  /**
-   * POST /orders/:orderId/confirm-payment
-   *
-   * Completes the (placeholder) payment flow: transitions an order from
-   * `payment_processing` to `completed`. Idempotent: calling it again on an
-   * already-`completed` order returns that order rather than erroring, so a
-   * retried or double-clicked confirmation can't double-process.
-   *
-   * Auth: required (Bearer JWT, verified by `app.authenticate`).
-   * Responses: 200 with the completed order, 400 for an invalid orderId, 401
-   * if unauthenticated, 403 if the order belongs to a different user, 404 if
-   * it does not exist, 409 if it isn't `payment_processing` or `completed`.
-   */
-  app.post<{ Params: OrderIdParams; Reply: OrderDto | ErrorResponse }>(
-    '/orders/:orderId/confirm-payment',
-    { onRequest: [app.authenticate] },
-    async (request, reply) => {
-      const { orderId } = request.params;
-      if (!isValidOrderId(orderId)) {
-        return reply.code(400).send({ error: 'Invalid orderId' });
-      }
-
-      const order = await orderService.findOrderById(orderId);
-      if (!order) {
-        return reply.code(404).send({ error: `Order not found: ${orderId}` });
-      }
-      if (order.userId !== request.user.userId) {
-        return reply.code(403).send({ error: 'This order belongs to a different user' });
-      }
-      if (order.status !== 'payment_processing' && order.status !== 'completed') {
-        return reply.code(409).send({ error: 'Order is not awaiting payment confirmation' });
-      }
-
-      const completed = await orderService.completePayment(orderId);
-      if (!completed) {
-        // Status changed between the check above and the atomic update below.
-        return reply.code(409).send({ error: 'Order is not awaiting payment confirmation' });
-      }
-
-      return reply.code(200).send(toOrderResponse(completed));
     }
   );
 };
