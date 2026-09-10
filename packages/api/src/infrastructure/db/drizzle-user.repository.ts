@@ -14,7 +14,7 @@ const UNIQUE_VIOLATION = '23505';
 const EMAIL_UNIQUE_CONSTRAINT = 'users_email_unique';
 
 function toUser(row: UserRow): User {
-  return { id: row.id, email: row.email, name: row.name, createdAt: row.createdAt };
+  return { id: row.id, email: row.email, name: row.name, createdAt: row.createdAt, role: row.role };
 }
 
 /**

@@ -1,9 +1,19 @@
+/**
+ * Authorization role. `customer` is the default for every signup; `admin` is
+ * granted only via `infrastructure/db/seed-admin.ts` — there is no HTTP
+ * endpoint that can change this. Declared here (not imported from
+ * `infrastructure/db/schema/users.ts`) because the domain layer must not
+ * import a specific database driver or ORM.
+ */
+export type UserRole = 'customer' | 'admin';
+
 /** A registered account, as exposed outside the persistence layer. */
 export interface User {
   id: string;
   email: string;
   name: string | null;
   createdAt: Date;
+  role: UserRole;
 }
 
 /**

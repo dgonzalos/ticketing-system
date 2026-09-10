@@ -14,7 +14,13 @@ interface ErrorResponse {
 
 function toAuthResponse({ user, token }: { user: User; token: string }): AuthResponseDto {
   return {
-    user: { id: user.id, email: user.email, name: user.name, createdAt: user.createdAt.toISOString() },
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      createdAt: user.createdAt.toISOString(),
+      role: user.role,
+    },
     token,
   };
 }

@@ -125,6 +125,8 @@ export interface UserDto {
   name: string | null;
   /** ISO 8601 timestamp. */
   createdAt: string;
+  /** Authorization role — `admin` accounts are only ever granted via `seed-admin.ts`. */
+  role: 'customer' | 'admin';
 }
 
 /** Request body for the API's `POST /auth/signup`. */

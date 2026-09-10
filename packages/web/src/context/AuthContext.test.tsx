@@ -8,7 +8,13 @@ import * as authApi from '../services/authApi';
 
 vi.mock('../services/authApi');
 
-const user: UserDto = { id: 'user-1', email: 'buyer@example.com', name: null, createdAt: '2026-01-01T00:00:00.000Z' };
+const user: UserDto = {
+  id: 'user-1',
+  email: 'buyer@example.com',
+  name: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  role: 'customer',
+};
 
 /** Signs the given payload with a fake header/signature so `exp` is decodable — the test never verifies the signature. */
 function fakeToken(exp: number): string {

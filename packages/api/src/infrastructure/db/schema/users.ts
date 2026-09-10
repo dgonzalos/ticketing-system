@@ -1,4 +1,11 @@
-import { index, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { index, pgEnum, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core';
+
+/**
+ * Authorization role. `customer` is the default for every signup; `admin` is
+ * granted only via `infrastructure/db/seed-admin.ts` — there is no HTTP
+ * endpoint that can change this.
+ */
+export const userRoleEnum = pgEnum('user_role', ['customer', 'admin']);
 
 /** A registered account, authenticated via email + Argon2-hashed password. */
 export const usersTable = pgTable(
@@ -21,6 +28,9 @@ export const usersTable = pgTable(
     /** Optional display name, for a future profile feature — not collected at signup yet. */
     name: varchar('name', { length: 255 }),
 
+    /** Authorization role — see `userRoleEnum` doc above. */
+    role: userRoleEnum('role').default('customer').notNull(),
+
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -34,3 +44,6 @@ export type User = typeof usersTable.$inferSelect;
 
 /** Shape required to insert a new user row. */
 export type NewUser = typeof usersTable.$inferInsert;
+
+/** The set of valid `role` values. */
+export type UserRole = (typeof userRoleEnum.enumValues)[number];

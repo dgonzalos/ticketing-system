@@ -103,6 +103,26 @@ const stripeClient = createStripeClient();
 const paymentService = new StripePaymentService(stripeClient, orderRepository, eventRepository, FRONTEND_URL);
 console.log('Stripe initialized in test mode');
 
+/**
+ * Admin authorization: looks up the caller's role live in the database on
+ * every request rather than trusting a role baked into the JWT. Tokens live
+ * 1h (see `infrastructure/auth/jwt.ts`'s `DEFAULT_EXPIRES_IN`) — a role in
+ * the payload would mean a demoted admin keeps admin rights for up to an
+ * hour. Declared here (after `userRepository` is constructed above), not
+ * immediately after `app.decorate('authenticate', ...)`, since it closes
+ * over `userRepository`.
+ *
+ * Protected routes use `onRequest: [app.authenticate, app.requireAdmin]`, in
+ * that order — `request.user` doesn't exist until `authenticate` has run.
+ * Replies 403 (not 401/404): the caller is authenticated, just not permitted.
+ */
+app.decorate('requireAdmin', async function (request, reply) {
+  const user = await userRepository.findById(request.user.userId);
+  if (!user || user.role !== 'admin') {
+    return reply.code(403).send({ error: 'Forbidden' });
+  }
+});
+
 // Routes
 await app.register(seatsRoutes, { seatLockManager });
 await app.register(eventsRoutes, { eventCatalog });
