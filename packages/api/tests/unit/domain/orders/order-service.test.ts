@@ -32,6 +32,7 @@ const performance: Performance = {
   venue: 'Orpheum Theatre',
   city: 'Seattle',
   capacity: 100,
+  status: 'scheduled',
 };
 
 const input: CreateOrderInput = {

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "performances_scheduled_slot_unique" ON "performances" USING btree ("event_id","date","time","venue") WHERE "performances"."status" = 'scheduled';

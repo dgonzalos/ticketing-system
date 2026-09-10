@@ -13,7 +13,8 @@
  */
 import { db, pool } from './client.js';
 import { eventsTable, orderItemsTable, ordersTable, performancesTable, seatsTable } from './schema/index.js';
-import type { NewEvent, NewPerformance, NewSeat } from './schema/index.js';
+import type { NewEvent, NewPerformance } from './schema/index.js';
+import { generateSeatMap } from '../../domain/seats/seat-map.js';
 
 const events: NewEvent[] = [
   {
@@ -44,33 +45,6 @@ const performances: NewPerformance[] = [
   { id: 'perf-5', eventId: 'event-3', date: '2026-05-10', time: '21:00:00', venue: 'Blue Note', city: 'New York', capacity: 100 },
 ];
 
-const ROWS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-const SEATS_PER_ROW = 10;
-
-/** Price in cents, banded by row: A-C premium, D-G standard, H-J economy. */
-function zoneAndPrice(row: string): { zone: string; price: number } {
-  if (row <= 'C') return { zone: 'premium', price: 15000 };
-  if (row <= 'G') return { zone: 'standard', price: 9000 };
-  return { zone: 'economy', price: 5000 };
-}
-
-function seatsForPerformance(performanceId: string): NewSeat[] {
-  return ROWS.flatMap((row) => {
-    const { zone, price } = zoneAndPrice(row);
-    return Array.from({ length: SEATS_PER_ROW }, (_, i) => {
-      const number = i + 1;
-      return {
-        id: `${performanceId}-${row}${number}`,
-        performanceId,
-        row,
-        number,
-        zone,
-        price,
-      } satisfies NewSeat;
-    });
-  });
-}
-
 async function seed(): Promise<void> {
   console.log('Seeding events/performances/seats...');
 
@@ -83,11 +57,13 @@ async function seed(): Promise<void> {
   await db.insert(eventsTable).values(events);
   await db.insert(performancesTable).values(performances);
 
+  let totalSeats = 0;
   for (const performance of performances) {
-    await db.insert(seatsTable).values(seatsForPerformance(performance.id));
+    const seatMap = generateSeatMap(performance.id);
+    await db.insert(seatsTable).values(seatMap);
+    totalSeats += seatMap.length;
   }
 
-  const totalSeats = performances.length * ROWS.length * SEATS_PER_ROW;
   console.log(`✅ Seeded ${events.length} events, ${performances.length} performances, ${totalSeats} seats`);
 }
 

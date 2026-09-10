@@ -45,6 +45,7 @@ const performance: Performance = {
   venue: 'Orpheum Theatre',
   city: 'Seattle',
   capacity: 100,
+  status: 'scheduled',
 };
 
 const event: Event = { eventId: 'event-1', title: 'Hamilton', description: null, imageUrl: null };

@@ -56,6 +56,40 @@ export interface PerformanceDto {
   capacity: number;
 }
 
+/** Request body for the API's `POST /admin/events`. */
+export interface CreateEventRequestDto {
+  title: string;
+  description?: string | null;
+  imageUrl?: string | null;
+}
+
+/** Request body for the API's `PATCH /admin/events/:eventId`. */
+export interface UpdateEventRequestDto {
+  title?: string;
+  description?: string | null;
+  imageUrl?: string | null;
+}
+
+/** Request body for the API's `POST /admin/events/:eventId/performances`. */
+export interface CreatePerformancesRequestDto {
+  performances: Array<{
+    /** Calendar date, `'YYYY-MM-DD'`. */
+    date: string;
+    /** Start time, `'HH:MM:SS'`. */
+    time: string;
+    venue: string;
+    city: string;
+    /** Informational only — does not affect actual seat generation. */
+    capacity?: number;
+  }>;
+}
+
+/** Wire shape returned by the API's `POST /admin/performances/:performanceId/cancel`. */
+export interface CancelPerformanceResponseDto {
+  performanceId: string;
+  status: 'cancelled';
+}
+
 /** Lifecycle state of an order. */
 export type OrderStatus = 'pending' | 'payment_processing' | 'completed' | 'cancelled';
 

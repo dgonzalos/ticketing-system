@@ -8,7 +8,13 @@ function createMockRepository(): IEventRepository {
     listEvents: vi.fn(),
     findEventById: vi.fn(),
     listPerformancesByEvent: vi.fn(),
+    listAllPerformancesByEvent: vi.fn(),
     findPerformanceById: vi.fn(),
+    createEvent: vi.fn(),
+    updateEvent: vi.fn(),
+    createPerformances: vi.fn(),
+    findScheduledPerformance: vi.fn(),
+    cancelPerformance: vi.fn(),
   };
 }
 
@@ -39,6 +45,7 @@ describe('EventCatalog', () => {
       venue: 'Orpheum Theatre',
       city: 'Seattle',
       capacity: 100,
+      status: 'scheduled',
     };
     const earlier: Performance = { ...later, performanceId: 'perf-1', date: '2026-03-14', time: '14:00:00' };
     (repository.listPerformancesByEvent as ReturnType<typeof vi.fn>).mockResolvedValueOnce([later, earlier]);

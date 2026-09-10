@@ -23,20 +23,21 @@ packages/
   api/            @ticketing/api — Fastify backend
     src/
       index.ts              server entrypoint (plugin registration, domain wiring, routes, health check)
-      api/routes/           HTTP route handlers — auth.ts, events.ts, orders.ts, payments.ts, seats.ts, webhooks.ts (14 endpoints total)
+      api/routes/           HTTP route handlers — auth.ts, events.ts, orders.ts, payments.ts, seats.ts, webhooks.ts, admin/catalog.ts (18 endpoints total)
       domain/                business logic, one subfolder per bounded context
-        seats/                seat-lock.ts (SeatLockManager), seat.repository.ts (ISeatRepository) — seat.service.ts exists but is an empty, unused stub
-        events/               event-catalog.ts (EventCatalog), event.repository.ts (IEventRepository)
+        seats/                seat-lock.ts (SeatLockManager), seat.repository.ts (ISeatRepository), seat-map.ts (generateSeatMap, shared by seed.ts and EventAdminService) — seat.service.ts exists but is an empty, unused stub
+        events/               event-catalog.ts (EventCatalog, read-only), event.repository.ts (IEventRepository), event-admin.service.ts (EventAdminService, write side — see "Admin and authorization" below), catalog-commands.ts (Zod command schemas)
         orders/               order-service.ts (OrderService), order.repository.ts (IOrderRepository)
         payments/             payment.service.ts (IPaymentService) — see "Payments (Stripe)" below
-        users/                user-service.ts (UserService), user.repository.ts (IUserRepository), token-signer.ts
+        users/                user-service.ts (UserService), user.repository.ts (IUserRepository), token-signer.ts — User now carries a role: 'customer' | 'admin'
         common/errors/        domain-errors.ts — shared domain error types
       infrastructure/
-        db/                  Drizzle client/schema/migrations, seed.ts, and drizzle-*.repository.ts implementations of the interfaces above
+        db/                  Drizzle client/schema/migrations, seed.ts, seed-admin.ts, and drizzle-*.repository.ts implementations of the interfaces above
         payment/              stripe-config.ts, stripe-payment.service.ts (StripePaymentService, implements IPaymentService)
         config/              env/config loading (not scaffolded yet — still empty)
     tests/
-      unit/                  real, populated vitest suites (routes + domain); integration/ still unused
+      unit/                  real, populated vitest suites (routes + domain), mocked repositories, no DB
+      integration/           tests needing real SQL behavior a mocked repository can't exercise; runs against a throwaway per-run Postgres database (see "Testing strategy")
   shared/         @ticketing-system/shared — types-only cross-package contracts (no build step)
   web/            @ticketing-system/web — React 18 + Vite frontend, CSS Modules + design tokens
   e2e/            @ticketing-system/e2e — Playwright golden-path test; `pnpm test` runs scripts/run-e2e.ts, giving each run its own throwaway Postgres database (see "Testing strategy")
@@ -93,6 +94,25 @@ Two gotchas worth knowing before touching this code:
 
 Env vars live in the root `.env`: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `FRONTEND_URL` (used to build the Checkout session's `success_url`/`cancel_url`). `STRIPE_PUBLISHABLE_KEY` is also there but currently unused by any code — nothing needs it without embedded Stripe.js. `STRIPE_WEBHOOK_SECRET` is empty until `stripe listen --forward-to localhost:3000/webhooks/stripe` (or a real deployed endpoint) provides one; the server logs a warning but still starts without it, and webhook deliveries just fail signature verification (400) until it's set.
 
+## Admin and authorization
+
+Accounts carry `role: 'customer' | 'admin'` (`infrastructure/db/schema/users.ts`'s `userRoleEnum`), defaulting to `'customer'` for every signup — `IUserRepository.create(email, passwordHash)` has no role parameter, deliberately, since that path backs the public signup route. There is no HTTP endpoint that can change a role: `pnpm --filter @ticketing/api db:seed-admin` (reads `ADMIN_EMAIL`/`ADMIN_PASSWORD` from the environment, idempotent — creates the account if the email is free, promotes it if not) is the only mechanism, since a "promote me" route is the single most obvious privilege-escalation hole a reviewer would look for in a repo like this.
+
+`requireAdmin` (decorated in `index.ts` alongside `authenticate`) checks role live against the database on every request — `role` is never included in the JWT payload (`types/fastify-jwt.d.ts`'s `payload`/`user` stay `{ userId: string }` only). This is deliberate: tokens live 1h (`infrastructure/auth/jwt.ts`'s `DEFAULT_EXPIRES_IN`), and baking role into the token would mean a demoted admin keeps admin rights until it expires. Protected routes use `onRequest: [app.authenticate, app.requireAdmin]`, in that order (`request.user` doesn't exist until `authenticate` has run), and reply 403 — not 401 or 404 — for an authenticated-but-non-admin caller.
+
+The admin catalog write routes (`api/routes/admin/catalog.ts`) —
+
+- `POST /admin/events`
+- `PATCH /admin/events/:eventId`
+- `POST /admin/events/:eventId/performances`
+- `POST /admin/performances/:performanceId/cancel`
+
+— are built on an explicit command pattern: every admin action is one Zod schema in `domain/events/catalog-commands.ts` plus one `EventAdminService` method that takes the parsed command object, never positional arguments. This is deliberate groundwork for the AI Admin Assistant (see Quick Links below): the assistant will translate natural language into the same command objects these routes already parse and pass to the same service methods, so there's never a second, drifting definition of what an admin action accepts. Routes parse with the *imported* command schemas — never their own inline Zod schema (unlike `auth.ts`'s own convention) — for that same reason. `catalog-commands.ts`'s own doc comment explains why Zod is a deliberate, narrow exception to "domain must be framework-free" (see Architecture above): Zod has no I/O and no framework/storage coupling, and a second consumer outside the HTTP layer (that same future AI layer) is a concrete, named reason for the schemas to live in `domain/` rather than in the routes layer where every other Zod schema in this codebase lives today.
+
+Cancelling a performance is a status flip (`performances.status`, `'scheduled' | 'cancelled'` — see `performanceStatusEnum`), never a delete: performances are referenced by seats, and through them by order_items, so deleting one would violate a foreign key or destroy purchase history. Cancelling also flips the performance's remaining `available` seats to `blocked`, leaving `sold`/`reserved` seats untouched, in the same transaction as the status flip. `EventAdminService.cancelPerformance` refuses (409, `PerformanceHasSalesError`) if any seats have already sold — cancelling would mean refunding real Stripe payments, and no refund path exists yet; cancelling an already-cancelled performance is a no-op. The public `GET /events/:eventId/performances` route only ever returns `scheduled` performances (`listPerformancesByEvent` filters at the repository level) and its DTO mapping strips `status` explicitly, so a cancelled performance's shape can never reach it.
+
+Scheduling performances generates each one's seats in the same all-or-nothing transaction as the performance rows themselves (`DrizzleEventRepository.createPerformances`, mirroring `DrizzleOrderRepository.createOrder`'s transaction template) — a performance with no seats is unsellable. Seat generation itself (`ROWS`, `SEATS_PER_ROW`, price banding) lives in `domain/seats/seat-map.ts`'s `generateSeatMap`, shared with `seed.ts` so the price bands can't drift between dev seeding and runtime performance creation. A caller-supplied `capacity` on a performance is informational only, matching the `capacity` column's existing semantics — it never changes how many seats `generateSeatMap` produces.
+
 ## Development conventions
 
 - ESM everywhere — no CommonJS (`require`) in `packages/api/src`.
@@ -102,8 +122,9 @@ Env vars live in the root `.env`: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, 
 
 ## Testing strategy
 
-- `packages/api` (`tests/unit`) and `packages/web` (co-located `*.test.tsx` next to each screen/component) both have real, populated vitest suites now — pattern-match against those rather than starting from scratch. `packages/api/tests/integration` is still unused.
+- `packages/api` (`tests/unit`) and `packages/web` (co-located `*.test.tsx` next to each screen/component) both have real, populated vitest suites now — pattern-match against those rather than starting from scratch.
 - Run a package's tests with `pnpm --filter @ticketing/api test` / `pnpm --filter @ticketing/web test` (there is no root-level test aggregation). Run these to see current pass/fail counts rather than trusting a number written down here — that's exactly the kind of claim that goes stale.
+- `packages/api/tests/integration` holds tests that need a real database — write one when the behavior under test is actual SQL (e.g. a `Drizzle*Repository` method's `WHERE` clause), which a mocked-interface unit test structurally cannot exercise. `pnpm --filter @ticketing/api test:integration` runs them against a throwaway, uniquely-named Postgres database (`tests/integration/test-db.ts`, mirroring `packages/e2e/scripts/run-e2e.ts`'s create/migrate/drop pattern) — created and dropped per run, never touching `ticketing_dev`. The default `pnpm test` explicitly excludes this folder (see `vitest.config.ts`), so the fast unit loop never requires Postgres to be reachable.
 - `packages/e2e` has one Playwright golden-path spec (signup → seat selection → checkout → redirect to real Stripe Checkout). `pnpm --filter @ticketing-system/e2e test` runs `scripts/run-e2e.ts`, which creates a uniquely-named Postgres database, runs migrations and the seed script against it, runs Playwright, then drops the database — win or fail. E2E runs no longer touch or pollute the shared dev database (`ticketing_dev`). No Docker is used or planned here — a per-run database already solves the isolation problem, and there's no CI yet to justify the added complexity. If `scripts/run-e2e.ts` fails to create its database, check `E2E_ADMIN_DATABASE_URL` in `.env`: the app's normal DB role may not have `CREATEDB`.
 - The golden-path spec deliberately stops at the Stripe redirect rather than completing a purchase — actually finishing payment on Stripe's own hosted page and waiting for the resulting webhook would mean driving a third-party UI this suite doesn't control, plus running `stripe listen` (or an equivalent forwarder) alongside every e2e run. See the spec's own doc comment, and "Payments (Stripe)" below, for the full flow this only partially exercises.
 
@@ -114,11 +135,13 @@ The root `package.json` has no `scripts` field — there is no `pnpm dev`/`pnpm 
 `packages/api` (`@ticketing/api`):
 - `dev` — `tsx watch src/index.ts`
 - `build` — `tsc`
-- `test` — `vitest`
+- `test` — `vitest` (unit only — excludes `tests/integration`, no DB required; see "Testing strategy")
+- `test:integration` — `vitest run --config vitest.integration.config.ts` (needs Postgres reachable; creates/drops its own throwaway database per run)
 - `start` — `node dist/index.js`
 - `db:generate` — `drizzle-kit generate` (generates a migration from schema changes)
 - `db:migrate` — `tsx src/infrastructure/db/migrate.ts` (applies pending migrations directly; migrations also run automatically on server startup via `runMigrations()` in `index.ts`)
 - `db:seed` — `tsx src/infrastructure/db/seed.ts` (safe to re-run — clears and reinserts catalog data)
+- `db:seed-admin` — `tsx src/infrastructure/db/seed-admin.ts` (idempotent — grants `role: 'admin'` to the account identified by `ADMIN_EMAIL`/`ADMIN_PASSWORD`, creating it if it doesn't exist yet; see "Admin and authorization")
 
 `packages/web` (`@ticketing/web`):
 - `dev` — `vite`

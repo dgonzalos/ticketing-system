@@ -1,5 +1,14 @@
-import { date, index, integer, pgTable, text, time, timestamp } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { date, index, integer, pgEnum, pgTable, text, time, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import { eventsTable } from './events.js';
+
+/**
+ * Lifecycle state of a performance. `cancelled` is a status flip, never a
+ * delete — performances are referenced by seats, and through them by
+ * order_items, so deleting one would either violate a foreign key or
+ * destroy purchase history. See `EventAdminService.cancelPerformance`.
+ */
+export const performanceStatusEnum = pgEnum('performance_status', ['scheduled', 'cancelled']);
 
 /**
  * A single scheduled instance of an event: a specific date/time at a
@@ -37,12 +46,32 @@ export const performancesTable = pgTable(
      */
     capacity: integer('capacity').notNull(),
 
+    /** Lifecycle state — see `performanceStatusEnum` doc above. */
+    status: performanceStatusEnum('status').default('scheduled').notNull(),
+
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     eventIdIdx: index('performances_event_id_idx').on(table.eventId),
     dateIdx: index('performances_date_idx').on(table.date),
+
+    /**
+     * Enforces "no two scheduled performances for the same event at the
+     * same date/time/venue" at the database level — a partial index
+     * (`WHERE status = 'scheduled'`) so a cancelled performance never
+     * blocks re-scheduling the same slot. This is the actual source of
+     * truth for that invariant: `EventAdminService.createPerformances`'s
+     * own pre-check (`findScheduledPerformance` + an in-memory batch scan)
+     * is only a fast-path UX nicety for the common, non-concurrent case —
+     * a pre-check read alone can't stop two concurrent identical requests
+     * from both passing it before either commits. See
+     * `DrizzleUserRepository.create`'s `users_email_unique` handling for
+     * the same pattern applied to email uniqueness.
+     */
+    scheduledSlotUniqueIdx: uniqueIndex('performances_scheduled_slot_unique')
+      .on(table.eventId, table.date, table.time, table.venue)
+      .where(sql`${table.status} = 'scheduled'`),
   })
 );
 
@@ -51,3 +80,6 @@ export type Performance = typeof performancesTable.$inferSelect;
 
 /** Shape required to insert a new performance row. */
 export type NewPerformance = typeof performancesTable.$inferInsert;
+
+/** The set of valid `status` values. */
+export type PerformanceStatus = (typeof performanceStatusEnum.enumValues)[number];

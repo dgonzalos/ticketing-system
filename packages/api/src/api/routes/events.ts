@@ -19,8 +19,24 @@ function toEventResponse(event: Event): EventDto {
   return event;
 }
 
+/**
+ * Explicit field-by-field mapping, not an identity return — `Performance`
+ * now carries a `status` field (see `event.repository.ts`) that
+ * `PerformanceDto` deliberately does not: this route only ever returns
+ * `scheduled` performances (the repository already filters that), but the
+ * mapping strips `status` defensively so a cancelled performance's shape
+ * can never reach this public route even if that filtering logic changes.
+ */
 function toPerformanceResponse(performance: Performance): PerformanceDto {
-  return performance;
+  return {
+    performanceId: performance.performanceId,
+    eventId: performance.eventId,
+    date: performance.date,
+    time: performance.time,
+    venue: performance.venue,
+    city: performance.city,
+    capacity: performance.capacity,
+  };
 }
 
 /**

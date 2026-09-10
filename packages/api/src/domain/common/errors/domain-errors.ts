@@ -104,6 +104,34 @@ export class InvalidCredentialsError extends DomainError {
   }
 }
 
+/**
+ * Thrown when an admin tries to schedule a performance that duplicates an
+ * existing scheduled performance for the same event/date/time/venue — or
+ * duplicates another performance within the same submitted batch.
+ */
+export class PerformanceAlreadyScheduledError extends DomainError {
+  constructor(
+    public readonly eventId: string,
+    public readonly date: string,
+    public readonly time: string,
+    public readonly venue: string
+  ) {
+    super(`A performance already exists for event ${eventId} on ${date} at ${time} at ${venue}`);
+  }
+}
+
+/**
+ * Thrown when an admin tries to cancel a performance that has sold seats.
+ * Refusing is correct: cancelling would mean refunding real Stripe
+ * payments, and no refund path exists yet — see
+ * `EventAdminService.cancelPerformance`.
+ */
+export class PerformanceHasSalesError extends DomainError {
+  constructor(public readonly performanceId: string) {
+    super(`Performance ${performanceId} has sold seats and cannot be cancelled`);
+  }
+}
+
 /** Thrown when a Stripe Checkout session cannot be created for an order. */
 export class PaymentInitiationError extends DomainError {
   constructor(public readonly orderId: string, cause?: unknown) {
