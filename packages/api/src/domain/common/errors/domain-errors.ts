@@ -161,3 +161,14 @@ export class AiBudgetExceededError extends DomainError {
     super(`Daily AI budget of $${dailyBudgetUsd.toFixed(2)} reached ($${todaySpendUsd.toFixed(2)} spent today)`);
   }
 }
+
+/**
+ * Thrown when `AdminAssistantService.respond` is called for a conversation
+ * that doesn't exist, or exists but has no pending write action to confirm
+ * or reject.
+ */
+export class ConversationNotFoundError extends DomainError {
+  constructor(public readonly conversationId: string) {
+    super(`No pending action found for conversation: ${conversationId}`);
+  }
+}

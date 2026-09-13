@@ -60,10 +60,12 @@ export class AiBudgetGuard {
    * remains a soft ceiling that concurrent in-flight calls can overshoot by
    * up to their combined cost, not a hard cap. Closing that fully would
    * mean reserving a pessimistic upper-bound cost before the call and
-   * reconciling it against the real usage after — which needs a per-call
-   * cost ceiling (e.g. derived from a `max_tokens` request parameter) that
-   * doesn't exist until Phase 2 defines the actual call shape. Revisit then
-   * if the overshoot in practice turns out to matter.
+   * reconciling it against the real usage after. That's a deliberately
+   * unclosed gap, not a deferred one: every write this budget guards stays
+   * a proposal until a human confirms it outside the AI call, so the
+   * entire cost of an overshoot is a few cents of extra Anthropic spend,
+   * never an extra mutation. Revisit only if that stops being true — e.g. a
+   * future phase lets the model execute a mutation on its own.
    */
   async run<T>(makeCall: () => Promise<{ result: T; usage: AnthropicUsage }>): Promise<T> {
     await this.assertWithinBudget();
