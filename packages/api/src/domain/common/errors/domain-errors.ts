@@ -150,3 +150,14 @@ export class PaymentVerificationError extends DomainError {
     super(`Could not verify payment for order ${orderId} (session ${sessionId})`);
   }
 }
+
+/**
+ * Thrown when today's estimated AI spend has reached or exceeded the
+ * configured daily budget. Checked before every individual Anthropic call
+ * (not once per conversational turn) — see `AiBudgetGuard.assertWithinBudget`.
+ */
+export class AiBudgetExceededError extends DomainError {
+  constructor(public readonly todaySpendUsd: number, public readonly dailyBudgetUsd: number) {
+    super(`Daily AI budget of $${dailyBudgetUsd.toFixed(2)} reached ($${todaySpendUsd.toFixed(2)} spent today)`);
+  }
+}

@@ -57,6 +57,13 @@
       "when": 1789046916101,
       "tag": "0007_tearful_lady_ursula",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789200898540,
+      "tag": "0008_outgoing_bloodscream",
+      "breakpoints": true
     }
   ]
 }
