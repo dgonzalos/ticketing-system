@@ -1,5 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { describe, expect, it, vi } from 'vitest';
+import type { IAiActionLogRepository } from '../../../../src/domain/ai/ai-action-log.repository.js';
 import { AdminAssistantService } from '../../../../src/domain/ai/admin-assistant.service.js';
 import { AdminToolExecutor } from '../../../../src/domain/ai/admin-tool-executor.js';
 import { AiBudgetGuard } from '../../../../src/domain/ai/ai-budget-guard.service.js';
@@ -38,6 +39,12 @@ function createMockUsageBudgetRepository(): IUsageBudgetRepository {
   };
 }
 
+function createMockAiActionLogRepository(): IAiActionLogRepository {
+  return {
+    record: vi.fn(),
+  };
+}
+
 const prices = { inputPricePerMTok: 3, outputPricePerMTok: 15 };
 
 function textBlock(text: string) {
@@ -64,6 +71,7 @@ function buildService(dailyBudgetUsd = 1) {
   const budgetGuard = new AiBudgetGuard(usageRepository, dailyBudgetUsd, prices);
   const toolExecutor = new AdminToolExecutor(eventCatalog);
   const conversationStore = new InMemoryConversationStore();
+  const actionLogRepository = createMockAiActionLogRepository();
 
   const service = new AdminAssistantService(
     anthropic as unknown as Anthropic,
@@ -71,10 +79,11 @@ function buildService(dailyBudgetUsd = 1) {
     toolExecutor,
     conversationStore,
     eventAdminService,
-    budgetGuard
+    budgetGuard,
+    actionLogRepository
   );
 
-  return { service, anthropic, eventCatalog, eventAdminService, usageRepository, conversationStore };
+  return { service, anthropic, eventCatalog, eventAdminService, usageRepository, conversationStore, actionLogRepository };
 }
 
 const event: Event = { eventId: 'e1', title: 'Hamilton', description: null, imageUrl: null };
@@ -127,7 +136,7 @@ describe('AdminAssistantService', () => {
     await service.sendMessage('conv-4', 'create an event called Hamilton');
     vi.mocked(eventAdminService.createEvent).mockResolvedValue(event);
 
-    const reply = await service.respond('conv-4', 'confirm');
+    const reply = await service.respond('conv-4', 'confirm', 'admin-1');
 
     expect(eventAdminService.createEvent).toHaveBeenCalledTimes(1);
     expect(eventAdminService.createEvent).toHaveBeenCalledWith({ title: 'Hamilton' });
@@ -145,9 +154,78 @@ describe('AdminAssistantService', () => {
     await service.sendMessage('conv-5', 'rename event missing to New Title');
     vi.mocked(eventAdminService.updateEvent).mockRejectedValue(new EventNotFoundError('missing'));
 
-    const reply = await service.respond('conv-5', 'confirm');
+    const reply = await service.respond('conv-5', 'confirm', 'admin-1');
 
     expect(reply).toContain("couldn't find that event");
+  });
+
+  it('respond("confirm") records an audit-log entry on genuine success, with the exact tool/command/adminUserId/conversationId and a resultSummary equal to the returned string', async () => {
+    const { service, anthropic, eventAdminService, actionLogRepository } = buildService();
+    vi.mocked(anthropic.messages.create).mockResolvedValueOnce(
+      fakeMessage([toolUseBlock('tu-audit-1', 'create_event', { title: 'Hamilton' })])
+    );
+    await service.sendMessage('conv-audit-1', 'create an event called Hamilton');
+    vi.mocked(eventAdminService.createEvent).mockResolvedValue(event);
+
+    const reply = await service.respond('conv-audit-1', 'confirm', 'admin-42');
+
+    expect(actionLogRepository.record).toHaveBeenCalledTimes(1);
+    expect(actionLogRepository.record).toHaveBeenCalledWith({
+      adminUserId: 'admin-42',
+      conversationId: 'conv-audit-1',
+      tool: 'create_event',
+      command: { title: 'Hamilton' },
+      resultSummary: reply,
+    });
+  });
+
+  it('respond("reject") never records an audit-log entry', async () => {
+    const { service, anthropic, actionLogRepository } = buildService();
+    vi.mocked(anthropic.messages.create).mockResolvedValueOnce(
+      fakeMessage([toolUseBlock('tu-audit-2', 'cancel_performance', { performanceId: 'perf-1' })])
+    );
+    await service.sendMessage('conv-audit-2', 'cancel perf-1');
+
+    await service.respond('conv-audit-2', 'reject', 'admin-42');
+
+    expect(actionLogRepository.record).not.toHaveBeenCalled();
+  });
+
+  it('respond("confirm") never records an audit-log entry when execution throws a domain failure', async () => {
+    const { service, anthropic, eventAdminService, actionLogRepository } = buildService();
+    vi.mocked(anthropic.messages.create).mockResolvedValueOnce(
+      fakeMessage([toolUseBlock('tu-audit-3', 'update_event', { eventId: 'missing', title: 'New Title' })])
+    );
+    await service.sendMessage('conv-audit-3', 'rename event missing to New Title');
+    vi.mocked(eventAdminService.updateEvent).mockRejectedValue(new EventNotFoundError('missing'));
+
+    await service.respond('conv-audit-3', 'confirm', 'admin-42');
+
+    expect(actionLogRepository.record).not.toHaveBeenCalled();
+  });
+
+  it('still clears pendingAction when the audit-log write fails, so a retried confirm does not re-execute the mutation', async () => {
+    const { service, anthropic, eventAdminService, conversationStore, actionLogRepository } = buildService();
+    vi.mocked(anthropic.messages.create).mockResolvedValueOnce(
+      fakeMessage([toolUseBlock('tu-audit-4', 'create_event', { title: 'Hamilton' })])
+    );
+    await service.sendMessage('conv-audit-4', 'create an event called Hamilton');
+    vi.mocked(eventAdminService.createEvent).mockResolvedValue(event);
+    vi.mocked(actionLogRepository.record).mockRejectedValueOnce(new Error('DB blip'));
+
+    const reply = await service.respond('conv-audit-4', 'confirm', 'admin-42');
+
+    expect(reply).toContain('Hamilton');
+    const stored = await conversationStore.get('conv-audit-4');
+    expect(stored?.pendingAction).toBeNull();
+
+    // A follow-up confirm on the same conversation must not find a pending
+    // action to re-execute — it should behave like any other resolved
+    // conversation, not replay the mutation a second time.
+    await expect(service.respond('conv-audit-4', 'confirm', 'admin-42')).rejects.toBeInstanceOf(
+      ConversationNotFoundError
+    );
+    expect(eventAdminService.createEvent).toHaveBeenCalledTimes(1);
   });
 
   it('respond("reject") cancels without calling EventAdminService or Anthropic again', async () => {
@@ -157,7 +235,7 @@ describe('AdminAssistantService', () => {
     );
     await service.sendMessage('conv-6', 'cancel perf-1');
 
-    const reply = await service.respond('conv-6', 'reject');
+    const reply = await service.respond('conv-6', 'reject', 'admin-1');
 
     expect(eventAdminService.cancelPerformance).not.toHaveBeenCalled();
     expect(anthropic.messages.create).toHaveBeenCalledTimes(1);
@@ -167,7 +245,7 @@ describe('AdminAssistantService', () => {
   it('respond throws ConversationNotFoundError when there is no pending action', async () => {
     const { service } = buildService();
 
-    await expect(service.respond('never-seen', 'confirm')).rejects.toBeInstanceOf(ConversationNotFoundError);
+    await expect(service.respond('never-seen', 'confirm', 'admin-1')).rejects.toBeInstanceOf(ConversationNotFoundError);
   });
 
   it('throws AiBudgetExceededError and never calls Anthropic when already over budget', async () => {
@@ -250,8 +328,8 @@ describe('AdminAssistantService', () => {
     // button is exactly this shape, and it's the race the lock exists for:
     // without it, both calls could read the same pendingAction before
     // either clears it and both call createEvent.
-    const firstCall = service.respond('conv-confirm-race', 'confirm');
-    const secondCall = service.respond('conv-confirm-race', 'confirm');
+    const firstCall = service.respond('conv-confirm-race', 'confirm', 'admin-1');
+    const secondCall = service.respond('conv-confirm-race', 'confirm', 'admin-1');
 
     resolveCreateEvent();
 

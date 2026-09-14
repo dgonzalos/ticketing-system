@@ -3,6 +3,7 @@ import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
 import fastifyJwt from '@fastify/jwt';
 import fastifyRawBody from 'fastify-raw-body';
+import { adminAssistantRoutes } from './api/routes/admin/assistant.js';
 import { adminCatalogRoutes } from './api/routes/admin/catalog.js';
 import { authRoutes } from './api/routes/auth.js';
 import { eventsRoutes } from './api/routes/events.js';
@@ -10,15 +11,21 @@ import { ordersRoutes } from './api/routes/orders.js';
 import { paymentsRoutes } from './api/routes/payments.js';
 import { seatsRoutes } from './api/routes/seats.js';
 import { webhooksRoutes } from './api/routes/webhooks.js';
+import { AdminAssistantService } from './domain/ai/admin-assistant.service.js';
+import { AdminToolExecutor } from './domain/ai/admin-tool-executor.js';
 import { EventAdminService } from './domain/events/event-admin.service.js';
 import { EventCatalog } from './domain/events/event-catalog.js';
 import { OrderService } from './domain/orders/order-service.js';
 import { SeatLockManager } from './domain/seats/seat-lock.js';
 import { UserService } from './domain/users/user-service.js';
+import { createAnthropicClient, createAiBudgetGuard, readAnthropicRuntimeConfig } from './infrastructure/ai/anthropic-config.js';
+import { InMemoryConversationStore } from './infrastructure/ai/in-memory-conversation-store.js';
 import { db } from './infrastructure/db/client.js';
+import { DrizzleAiActionLogRepository } from './infrastructure/db/drizzle-ai-action-log.repository.js';
 import { DrizzleEventRepository } from './infrastructure/db/drizzle-event.repository.js';
 import { DrizzleOrderRepository } from './infrastructure/db/drizzle-order.repository.js';
 import { DrizzleSeatRepository } from './infrastructure/db/drizzle-seat.repository.js';
+import { DrizzleUsageBudgetRepository } from './infrastructure/db/drizzle-usage-budget.repository.js';
 import { DrizzleUserRepository } from './infrastructure/db/drizzle-user.repository.js';
 import { runMigrations } from './infrastructure/db/migrate.js';
 import { jwtTokenSigner } from './infrastructure/auth/jwt.js';
@@ -106,6 +113,24 @@ const stripeClient = createStripeClient();
 const paymentService = new StripePaymentService(stripeClient, orderRepository, eventRepository, FRONTEND_URL);
 console.log('Stripe initialized in test mode');
 
+const anthropicClient = createAnthropicClient();
+const { model: anthropicModel } = readAnthropicRuntimeConfig();
+const usageBudgetRepository = new DrizzleUsageBudgetRepository(db);
+const aiBudgetGuard = createAiBudgetGuard(usageBudgetRepository);
+const conversationStore = new InMemoryConversationStore();
+const adminToolExecutor = new AdminToolExecutor(eventCatalog);
+const aiActionLogRepository = new DrizzleAiActionLogRepository(db);
+const adminAssistantService = new AdminAssistantService(
+  anthropicClient,
+  anthropicModel,
+  adminToolExecutor,
+  conversationStore,
+  eventAdminService,
+  aiBudgetGuard,
+  aiActionLogRepository
+);
+console.log('AI Admin Assistant initialized');
+
 /**
  * Admin authorization: looks up the caller's role live in the database on
  * every request rather than trusting a role baked into the JWT. Tokens live
@@ -130,6 +155,7 @@ app.decorate('requireAdmin', async function (request, reply) {
 await app.register(seatsRoutes, { seatLockManager });
 await app.register(eventsRoutes, { eventCatalog });
 await app.register(adminCatalogRoutes, { eventAdminService });
+await app.register(adminAssistantRoutes, { adminAssistantService, conversationStore });
 await app.register(ordersRoutes, { orderService });
 await app.register(paymentsRoutes, { paymentService, orderService });
 await app.register(webhooksRoutes, { stripe: stripeClient, webhookSecret: STRIPE_WEBHOOK_SECRET, paymentService });

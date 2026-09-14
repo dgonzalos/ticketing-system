@@ -11,3 +11,4 @@ export * from './seats.js';
 export * from './orders.js';
 export * from './users.js';
 export * from './ai-usage.js';
+export * from './ai-admin-actions.js';

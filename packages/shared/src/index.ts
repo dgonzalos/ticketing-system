@@ -183,3 +183,42 @@ export interface AuthResponseDto {
   user: UserDto;
   token: string;
 }
+
+/**
+ * A write action the AI Admin Assistant has proposed and is waiting on an
+ * admin to confirm or reject, as exposed on the wire. `toolUseId` is an
+ * internal Anthropic conversation detail with no reason to reach the
+ * frontend, so it's deliberately omitted here — see
+ * `packages/api/src/domain/ai/conversation-store.ts`'s `PendingWriteAction`
+ * for the full internal shape this is derived from.
+ */
+export interface PendingAiActionDto {
+  tool: 'create_event' | 'update_event' | 'create_performances' | 'cancel_performance';
+  command: unknown;
+  summary: string;
+}
+
+/** Request body for the API's `POST /admin/assistant/messages` (see `packages/api/src/api/routes/admin/assistant.ts`). */
+export interface AiAssistantMessageRequestDto {
+  /** Omit to start a new conversation — the server mints one and returns it. */
+  conversationId?: string;
+  message: string;
+}
+
+/** Request body for the API's `POST /admin/assistant/respond` (see `packages/api/src/api/routes/admin/assistant.ts`). */
+export interface AiAssistantRespondRequestDto {
+  conversationId: string;
+  decision: 'confirm' | 'reject';
+}
+
+/**
+ * Wire shape returned by both `POST /admin/assistant/messages` and
+ * `POST /admin/assistant/respond`. `reply` is always plain conversational
+ * text; `pendingAction` is non-null only when the assistant is waiting on a
+ * confirm/reject decision.
+ */
+export interface AiAssistantTurnResponseDto {
+  conversationId: string;
+  reply: string;
+  pendingAction: PendingAiActionDto | null;
+}

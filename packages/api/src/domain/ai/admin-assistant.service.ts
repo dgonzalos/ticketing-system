@@ -14,6 +14,7 @@ import {
   UpdateEventCommandSchema,
 } from '../events/catalog-commands.js';
 import type { EventAdminService } from '../events/event-admin.service.js';
+import type { IAiActionLogRepository } from './ai-action-log.repository.js';
 import type { AdminToolExecutor } from './admin-tool-executor.js';
 import { buildToolDefinitions, isReadToolName, isWriteToolName } from './admin-tools.js';
 import type { AiBudgetGuard } from './ai-budget-guard.service.js';
@@ -151,8 +152,11 @@ function toToolResultBlock(toolUseId: string, content: string, isError = false):
  * message, resolves names to ids via read-only tools and proposes a
  * structured write command via `AdminToolExecutor` — never executing a
  * mutation itself. Only `respond('confirm')` ever calls `EventAdminService`,
- * and it's a human-triggered call (wired to a route in a later phase), not
- * something the model can reach on its own.
+ * and it's a human-triggered call (wired to `POST /admin/assistant/respond`
+ * in Phase 3), not something the model can reach on its own. Every genuine
+ * success there is also recorded via `IAiActionLogRepository` — see
+ * `respond`'s success branch — as the accountability trail for what the
+ * assistant actually changed and which admin approved it.
  */
 export class AdminAssistantService {
   private readonly toolDefinitions: Anthropic.Tool[];
@@ -185,7 +189,8 @@ export class AdminAssistantService {
     private readonly toolExecutor: AdminToolExecutor,
     private readonly conversationStore: IConversationStore,
     private readonly eventAdminService: EventAdminService, // used ONLY inside respond('confirm')
-    private readonly budgetGuard: AiBudgetGuard
+    private readonly budgetGuard: AiBudgetGuard,
+    private readonly actionLogRepository: IAiActionLogRepository
   ) {
     this.toolDefinitions = buildToolDefinitions();
   }
@@ -227,11 +232,11 @@ export class AdminAssistantService {
     return this.runLoop(conversationId, messages);
   }
 
-  async respond(conversationId: string, decision: 'confirm' | 'reject'): Promise<string> {
-    return this.withConversationLock(conversationId, () => this.respondLocked(conversationId, decision));
+  async respond(conversationId: string, decision: 'confirm' | 'reject', adminUserId: string): Promise<string> {
+    return this.withConversationLock(conversationId, () => this.respondLocked(conversationId, decision, adminUserId));
   }
 
-  private async respondLocked(conversationId: string, decision: 'confirm' | 'reject'): Promise<string> {
+  private async respondLocked(conversationId: string, decision: 'confirm' | 'reject', adminUserId: string): Promise<string> {
     const conversation = await this.conversationStore.get(conversationId);
     if (!conversation || !conversation.pendingAction) {
       throw new ConversationNotFoundError(conversationId);
@@ -258,6 +263,27 @@ export class AdminAssistantService {
       }
       replyText = describeDomainFailure(error);
       isError = true;
+    }
+
+    if (!isError) {
+      // Best-effort relative to clearing `pendingAction` below: the mutation
+      // above already happened for real, so a failure here must not stop
+      // this conversation from being marked resolved — otherwise a retried
+      // `respond('confirm')` would find the same `pendingAction` still
+      // present and execute it a second time (a real duplicate write for
+      // non-idempotent tools like `create_event`). Losing one audit row to
+      // a transient DB error is a far smaller problem than that.
+      try {
+        await this.actionLogRepository.record({
+          adminUserId,
+          conversationId,
+          tool: pendingAction.tool,
+          command: pendingAction.command,
+          resultSummary: replyText,
+        });
+      } catch (error) {
+        console.error(`AdminAssistantService: failed to record audit log for conversation ${conversationId}`, error);
+      }
     }
 
     const messages = trimMessages([
