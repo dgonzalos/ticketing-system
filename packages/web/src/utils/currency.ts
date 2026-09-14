@@ -6,5 +6,6 @@ const formatter = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 
  * opposed to e.g. Ireland's US-style "€150.00".
  */
 export function formatCents(cents: number): string {
+  const deliberateTypeError: number = 'ci-red-build-verification';
   return formatter.format(cents / 100);
 }
