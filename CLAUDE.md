@@ -19,6 +19,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Repository structure
 
 ```
+.github/
+  workflows/
+    ci.yml        install → build API → typecheck/build/check:no-raw-colors/test web → unit test API (see "Continuous integration" below)
+.nvmrc            pins Node to 24.20.0 — read by actions/setup-node's node-version-file in CI
 packages/
   api/            @ticketing/api — Fastify backend
     src/
@@ -146,7 +150,12 @@ A natural-language layer over the admin catalog write side (`EventAdminService`)
 - ESM everywhere — no CommonJS (`require`) in `packages/api/src`.
 - TypeScript strict mode is enforced via `tsconfig.base.json`; package-level `tsconfig.json` files extend it rather than redefining compiler options.
 - No linter or formatter is configured in the repo yet.
+- Node is pinned to `24.20.0` (matches the dev machine) via root `.nvmrc`; `packages/api`'s `package.json` sets an open-ended `engines.node: ">=22.0.0"` floor (no upper bound, so it never needs an edit on a Node major bump); `packages/api`'s `@types/node` is `^24.0.0` to match. See "Continuous integration" below for where this gets exercised.
 - Windows gotcha: a script's "run only if executed directly" guard must compare `import.meta.url` to `pathToFileURL(process.argv[1]).href`, not a raw `` `file://${process.argv[1]}` `` string — `process.argv[1]` uses backslashes on Windows, so the raw-string form silently never matches and the guarded code never runs (see `infrastructure/db/migrate.ts`).
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and PR to `main`: install (`pnpm install --frozen-lockfile`) → build the API (`tsc`, doubling as its typecheck) → typecheck/build/`check:no-raw-colors`/test the web package → unit test the API. This is Phase 0 of a larger deployment effort, not a quality gate in the PR-review sense — there's one committer and nothing merges through PRs today. Its actual job is a free, ~2-minute rehearsal of the Linux build a real deploy (Railway) will do, since day-to-day dev happens on Windows: it catches whether `argon2` (a native module) has a prebuilt binary for the pinned Node version or tries to compile from source, whether the lockfile resolves cleanly, and whether `tsc` emits `dist/index.js` at the expected path on a case-sensitive filesystem. Deliberately excludes Postgres service containers, `test:integration`, Playwright/e2e, linting, and any deploy step — see "Testing strategy" below for why those stay a separate, Postgres-backed phase. `pnpm-lock.yaml` is committed (previously gitignored) so `--frozen-lockfile` has something to check against in CI.
 
 ## Testing strategy
 
