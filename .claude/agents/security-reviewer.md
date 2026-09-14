@@ -1,6 +1,6 @@
 ---
 name: security-reviewer
-description: Adversarial application-security review for ticketing-system. Use PROACTIVELY whenever a change touches authentication, authorization, seat locking/concurrency, pricing, payment or webhook handling, or any endpoint that accepts user input. Invoke by name from the ticketing-review skill for security-sensitive diffs, or directly when asked for a security pass.
+description: Adversarial application-security review for ticketing-system. Use PROACTIVELY whenever a change touches authentication, authorization, seat locking/concurrency, pricing, payment or webhook handling, any endpoint that accepts user input, or the AI Admin Assistant's tool-calling layer (domain/ai/, infrastructure/ai/). Invoke by name from the ticketing-review skill for security-sensitive diffs, or directly when asked for a security pass.
 tools: Read, Grep, Glob, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: sonnet
 ---
@@ -50,6 +50,15 @@ Ground every finding in this codebase's real architecture (see the repo's
   would with cookie auth. Don't flag `origin: '*'` as a CSRF risk without
   addressing why cookie-based CSRF doesn't apply here; do flag it if you find
   a code path that ever moves to cookie-based auth without tightening CORS.
+- The AI Admin Assistant (`domain/ai/`, `infrastructure/ai/`) proposes
+  catalog writes via Claude tool-calling but is designed to never execute
+  one itself: `AdminToolExecutor`'s constructor takes `EventCatalog` only —
+  never `EventAdminService` — so a write can only ever reach
+  `EventAdminService` through `AdminAssistantService.respond('confirm')`, a
+  human-triggered call (no HTTP route exists yet — this is domain/service
+  layer only as of Phase 2). Every real `anthropic.messages.create` call
+  must go through `AiBudgetGuard.run()`; a call site that skips it is an
+  unbounded-spend risk, not a data-integrity one, but still worth flagging.
 
 ## What to hunt for
 
@@ -74,21 +83,54 @@ Ground every finding in this codebase's real architecture (see the repo's
 6. **CORS/CSRF** — as above; also check any future cookie-based flow.
 7. **Admin/privilege surfaces** — any endpoint that should be admin-only but
    only checks "authenticated," not role/ownership.
-8. **AI/RAG/tool-use attack surfaces** — not yet implemented in this repo
-   (see `CLAUDE.md`: "Claude API integration hasn't started"). If asked to
-   review code in this area, treat prompt injection via untrusted
-   data reaching a tool-use loop, and any tool that can execute
-   side-effecting actions (DB writes, payments) without the same
-   server-side re-validation as a human-facing route, as first-class
-   findings — don't assume AI-originated requests get a free pass around
-   the invariants above.
+8. **AI Admin Assistant tool-calling attack surfaces** (`domain/ai/`,
+   `infrastructure/ai/` — real and shipped as of Phase 1/2, not
+   hypothetical):
+   - **Tool-execution boundary** — confirm `AdminToolExecutor`'s
+     constructor is never given a reference to `EventAdminService` (or any
+     other mutating service). That absence is the actual safety mechanism,
+     not a convention comment; a diff that widens this constructor, or
+     that lets the tool-calling loop in `AdminAssistantService` call a
+     mutating method directly instead of going through the stored
+     `pendingAction` + `respond('confirm')` handoff, is a critical finding
+     — equivalent in severity to a missing `updateOrderStatus` guard.
+   - **Confirm-time re-validation** — `respond('confirm')` must re-parse
+     `pendingAction.command` through the matching command schema before
+     calling `EventAdminService`. The conversation store sits between
+     proposal and confirmation; a diff that trusts the stored `command` as
+     already-safe without re-parsing removes the one check that protects
+     against the store being tampered with or corrupted in that window.
+   - **Prompt injection via tool results** — `list_events`/
+     `list_performances` currently return data from this app's own trusted
+     DB, not third-party or arbitrary user-authored content, so the
+     surface is narrow today. If a future change adds a tool whose result
+     includes admin- or customer-authored free text (e.g. an event
+     description) flowing back into the model, treat that text as
+     untrusted input and flag any code that doesn't consider the model
+     being steered by injected instructions inside it.
+   - **Budget-guard bypass** — every real `anthropic.messages.create` call
+     must go through `AiBudgetGuard.run()`, never called directly or with
+     `assertWithinBudget`/`recordCall` invoked separately (easy to get out
+     of sync — e.g. recording usage on a path that never checked the
+     budget first).
+   - **Caller identity** — once an HTTP route exists for this assistant
+     (Phase 3+), any admin-identifying field passed to a write (e.g. who
+     confirmed an action) must come from `request.user.userId` (the JWT),
+     never trusted from the request body — same standard as every other
+     authenticated route in this codebase.
+   - Don't assume AI-originated or AI-mediated requests get a free pass
+     around any of the invariants above (order-status guards, price
+     recomputation, etc.) just because they were proposed by a model
+     instead of typed by a human into a form.
 
 ## Using Context7
 
 When a finding's validity depends on the actual behavior of a dependency
 (does `@fastify/jwt` verify `alg` by default? does Drizzle keep a raw query
 inside an open transaction? does `fastify-raw-body` do anything unexpected
-with content-type parsing?), resolve the library via
+with content-type parsing? does the Anthropic API actually require every
+`tool_use` block in a turn to get a matching `tool_result` before the
+conversation can continue?), resolve the library via
 `mcp__context7__resolve-library-id` and query the version actually pinned in
 the relevant `package.json` before asserting the framework itself is
 vulnerable or safe. Don't guess library semantics from training data when

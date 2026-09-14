@@ -172,3 +172,18 @@ export class ConversationNotFoundError extends DomainError {
     super(`No pending action found for conversation: ${conversationId}`);
   }
 }
+
+/**
+ * Thrown when `AdminAssistantService.sendMessage` is called for a
+ * conversation that already has a pending write action awaiting
+ * confirm/reject. A new message can't safely be appended while a proposed
+ * tool_use is still unresolved — the Anthropic API requires every tool_use
+ * block to get a matching tool_result before the conversation continues, and
+ * appending a plain new message without one produces a malformed request on
+ * the next call. Call `respond('confirm' | 'reject')` first.
+ */
+export class PendingActionExistsError extends DomainError {
+  constructor(public readonly conversationId: string) {
+    super(`Conversation ${conversationId} has a pending action awaiting confirm/reject — resolve it before sending another message`);
+  }
+}

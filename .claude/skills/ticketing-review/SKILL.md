@@ -1,6 +1,6 @@
 ---
 name: ticketing-review
-description: Deep, ticketing-domain-specific code review for this repo — concurrency, transactions, state machines, money/pricing, DB, Fastify/React/TypeScript conventions, tests, performance, and architecture. More targeted than the built-in /code-review skill because it knows this codebase's specific invariants. Use when reviewing a diff, branch, or PR in ticketing-system, especially anything touching seats, orders, or payments.
+description: Deep, ticketing-domain-specific code review for this repo — concurrency, transactions, state machines, money/pricing, DB, the AI Admin Assistant's tool-calling layer, Fastify/React/TypeScript conventions, tests, performance, and architecture. More targeted than the built-in /code-review skill because it knows this codebase's specific invariants. Use when reviewing a diff, branch, or PR in ticketing-system, especially anything touching seats, orders, payments, or domain/ai.
 ---
 
 # ticketing-review
@@ -114,14 +114,50 @@ it — don't pad the report.
   site that doesn't actually exist yet — recommend skipping unless there
   are 2+ genuine current call sites.
 
+## AI Admin Assistant (`domain/ai/`, `infrastructure/ai/`)
+
+- **Executor boundary**: `AdminToolExecutor`'s constructor must take
+  `EventCatalog` only — never `EventAdminService` or any other write-side
+  service. That's the actual mechanism that makes a write tool call a
+  proposal rather than an execution; a diff that widens this constructor's
+  dependencies, or that has `AdminAssistantService`'s tool-calling loop
+  call a mutating method directly, is a near-automatic finding — the same
+  severity class as an ungated order-status write.
+- **Budget guard discipline**: every real `anthropic.messages.create` call
+  must go through `AiBudgetGuard.run()`. Flag any new call site that calls
+  the SDK directly, or that calls `assertWithinBudget`/`recordCall`
+  separately instead of via `run()` — easy to get out of sync (e.g.
+  recording usage on a path that never checked the budget first, or
+  checking the budget but forgetting to record a call that errored).
+- **Confirm-time re-validation**: `AdminAssistantService.respond('confirm')`
+  must re-parse `pendingAction.command` through the matching command
+  schema before calling `EventAdminService` — don't let a diff skip this on
+  the assumption the command was already validated once by
+  `AdminToolExecutor`. The point of re-parsing here is defense against the
+  conversation store being touched some other way between proposal and
+  confirmation, not redundancy with the executor's own Zod parse.
+- **Templated confirm replies**: `respond('confirm')` and `respond('reject')`
+  must make zero additional Anthropic calls — a new "let the model phrase a
+  nicer confirmation" call on this path is both a cost regression and a
+  design regression (see the Phase 2 doc comments explaining why this is
+  deliberate).
+- **Conversation-store scope**: `InMemoryConversationStore` is documented
+  as single-process and lost on restart. Don't let a diff quietly assume
+  conversation state survives a restart or is shared across API instances
+  without also swapping in a persisted `IConversationStore` implementation.
+- Prompt-injection and tool-execution-bypass concerns belong to
+  `security-reviewer` (below), not here — this section catches
+  domain-correctness issues in the AI layer itself.
+
 ## Delegate security-sensitive changes
 
 For any diff touching authentication, authorization, seat-reservation
-concurrency, pricing, payment/webhook handling, or raw user input reaching a
-query — **invoke the `security-reviewer` subagent** (adversarial,
-exploit-path-focused) rather than trying to cover that ground here. This
-skill's categories above catch correctness/architecture issues; that agent
-is the one that thinks like an attacker.
+concurrency, pricing, payment/webhook handling, raw user input reaching a
+query, or the AI Admin Assistant's tool-calling layer — **invoke the
+`security-reviewer` subagent** (adversarial, exploit-path-focused) rather
+than trying to cover that ground here. This skill's categories above catch
+correctness/architecture issues; that agent is the one that thinks like an
+attacker.
 
 ## External documentation with Context7
 
@@ -144,6 +180,8 @@ Examples include:
 - Argon2 libraries
 - JWT libraries
 - Vite
+- Anthropic SDK / Claude API (e.g. tool_use/tool_result pairing rules,
+  prompt-caching cache_control semantics, usage/pricing field shapes)
 
 ### When to use Context7
 

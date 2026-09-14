@@ -25,6 +25,19 @@ function summarizeZodError(error: ZodError): string {
   return error.issues.map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`).join('; ');
 }
 
+/**
+ * These `summarize*` functions are the confirmation text a human sees before
+ * `respond('confirm')` executes anything — they build that text from the
+ * parsed, Zod-validated *command object* only, never from the model's own
+ * narration. This matters because read-tool results (`list_events`/
+ * `list_performances`) already return admin-authored free text (event
+ * descriptions) that a *different* admin could have planted steering
+ * instructions in — a live, if narrow, prompt-injection surface. Poisoned
+ * text can influence what the model *says* in conversation, but it can't
+ * make the confirmation summary claim something other than what the
+ * validated command actually contains. Keep it that way: never substitute
+ * model-generated text for a value read directly off `command` here.
+ */
 function summarizeCreateEvent(command: CreateEventCommand): string {
   return `Create event "${command.title}"`;
 }

@@ -2,6 +2,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 import {
   ConversationNotFoundError,
   EventNotFoundError,
+  PendingActionExistsError,
   PerformanceAlreadyScheduledError,
   PerformanceHasSalesError,
   PerformanceNotFoundError,
@@ -138,7 +139,7 @@ function extractText(content: Anthropic.ContentBlock[]): string {
 }
 
 function toAssistantMessage(response: Anthropic.Message): Anthropic.MessageParam {
-  return { role: 'assistant', content: response.content as unknown as Anthropic.ContentBlockParam[] };
+  return { role: 'assistant', content: response.content };
 }
 
 function toToolResultBlock(toolUseId: string, content: string, isError = false): Anthropic.ToolResultBlockParam {
@@ -156,6 +157,28 @@ function toToolResultBlock(toolUseId: string, content: string, isError = false):
 export class AdminAssistantService {
   private readonly toolDefinitions: Anthropic.Tool[];
 
+  /**
+   * Serializes `sendMessage`/`respond` calls per `conversationId` — both
+   * methods do a check-then-act read of `pendingAction` before writing, and
+   * without this, two concurrent calls on the same conversation (a
+   * double-clicked "Confirm" button, a client retry) can both pass their
+   * check before either saves, silently overwriting one proposal with
+   * another or letting a confirm execute a different action than the one
+   * the caller was actually shown. Calls for *different* conversationIds
+   * are unaffected and run fully concurrently. This is an in-process lock,
+   * matching `InMemoryConversationStore`'s own already-documented
+   * single-instance scope — a future multi-instance deployment would need
+   * this moved into the store itself (e.g. compare-and-swap on save), not
+   * just here.
+   *
+   * Self-cleaning: `withConversationLock` deletes a conversationId's entry
+   * once its chain settles and no newer call has replaced it, so this map's
+   * size tracks conversations with an in-flight or queued call, not every
+   * conversationId ever seen — it does not grow unbounded over the life of
+   * the process.
+   */
+  private readonly conversationLocks = new Map<string, Promise<unknown>>();
+
   constructor(
     private readonly anthropic: Anthropic,
     private readonly model: string,
@@ -167,13 +190,48 @@ export class AdminAssistantService {
     this.toolDefinitions = buildToolDefinitions();
   }
 
+  private async withConversationLock<T>(conversationId: string, fn: () => Promise<T>): Promise<T> {
+    const previous = this.conversationLocks.get(conversationId) ?? Promise.resolve();
+    const run = previous.then(fn, fn);
+    // Chain on a version that always resolves, so one failed call doesn't
+    // permanently jam the queue for this conversationId — the real
+    // success/failure of `run` still propagates to this call's own caller.
+    const tail = run.then(
+      () => undefined,
+      () => undefined
+    );
+    this.conversationLocks.set(conversationId, tail);
+    // Once this call's link in the chain settles, drop the entry — but only
+    // if nothing newer has chained onto it since. If the map still points at
+    // this exact `tail`, no other call is queued behind it, so it's safe to
+    // forget this conversationId until the next call recreates the entry.
+    void tail.then(() => {
+      if (this.conversationLocks.get(conversationId) === tail) {
+        this.conversationLocks.delete(conversationId);
+      }
+    });
+    return run;
+  }
+
+  /** @throws {PendingActionExistsError} if the conversation already has a write action awaiting confirm/reject. */
   async sendMessage(conversationId: string, userMessage: string): Promise<string> {
+    return this.withConversationLock(conversationId, () => this.sendMessageLocked(conversationId, userMessage));
+  }
+
+  private async sendMessageLocked(conversationId: string, userMessage: string): Promise<string> {
     const existing = await this.conversationStore.get(conversationId);
+    if (existing?.pendingAction) {
+      throw new PendingActionExistsError(conversationId);
+    }
     const messages: Anthropic.MessageParam[] = [...(existing?.messages ?? []), { role: 'user', content: userMessage }];
     return this.runLoop(conversationId, messages);
   }
 
   async respond(conversationId: string, decision: 'confirm' | 'reject'): Promise<string> {
+    return this.withConversationLock(conversationId, () => this.respondLocked(conversationId, decision));
+  }
+
+  private async respondLocked(conversationId: string, decision: 'confirm' | 'reject'): Promise<string> {
     const conversation = await this.conversationStore.get(conversationId);
     if (!conversation || !conversation.pendingAction) {
       throw new ConversationNotFoundError(conversationId);
@@ -264,11 +322,24 @@ export class AdminAssistantService {
       const writeBlock = toolUseBlocks.find((block) => isWriteToolName(block.name));
       const readBlocks = toolUseBlocks.filter((block) => isReadToolName(block.name));
       const extraBlocks = toolUseBlocks.filter((block) => block !== writeBlock && !readBlocks.includes(block));
-      for (const extra of extraBlocks) {
-        console.warn(`AdminAssistantService: discarding extra tool_use ${extra.name} (${extra.id})`);
-      }
 
       const toolResultBlocks: Anthropic.ToolResultBlockParam[] = [];
+
+      // Every tool_use the model emits must get a tool_result — even a
+      // discarded one — or the next call on this conversation is rejected as
+      // malformed. Only one write proposal is honored per turn; any further
+      // write calls in the same response are told so, not silently dropped.
+      for (const extra of extraBlocks) {
+        console.warn(`AdminAssistantService: discarding extra tool_use ${extra.name} (${extra.id})`);
+        toolResultBlocks.push(
+          toToolResultBlock(
+            extra.id,
+            'Only one write action can be proposed per turn; this one was ignored. Ask again separately if it is still needed.',
+            true
+          )
+        );
+      }
+
       for (const block of readBlocks) {
         const outcome = await this.toolExecutor.execute(block.name, block.input);
         if (outcome.kind === 'invalid') {
