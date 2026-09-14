@@ -14,9 +14,14 @@ function getDatabaseUrl(): string {
  * Underlying pg connection pool, for lifecycle management (e.g. `await pool.end()`
  * on app shutdown). Most code should query through {@link db} instead.
  *
+ * `query_timeout` caps how long any single query can hold a connection —
+ * without it, an unauthenticated caller hammering `/health` (which queries
+ * this pool directly, see index.ts) could exhaust the pool's connections
+ * against a slow/unresponsive database, queuing out every other route.
+ *
  * @throws {Error} If DATABASE_URL environment variable is not set.
  */
-export const pool = new Pool({ connectionString: getDatabaseUrl() });
+export const pool = new Pool({ connectionString: getDatabaseUrl(), query_timeout: 5000 });
 
 /**
  * Drizzle ORM database client for PostgreSQL, connected via node-postgres (pg

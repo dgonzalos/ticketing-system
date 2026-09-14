@@ -20,14 +20,13 @@ import { SeatLockManager } from './domain/seats/seat-lock.js';
 import { UserService } from './domain/users/user-service.js';
 import { createAnthropicClient, createAiBudgetGuard, readAnthropicRuntimeConfig } from './infrastructure/ai/anthropic-config.js';
 import { InMemoryConversationStore } from './infrastructure/ai/in-memory-conversation-store.js';
-import { db } from './infrastructure/db/client.js';
+import { db, pool } from './infrastructure/db/client.js';
 import { DrizzleAiActionLogRepository } from './infrastructure/db/drizzle-ai-action-log.repository.js';
 import { DrizzleEventRepository } from './infrastructure/db/drizzle-event.repository.js';
 import { DrizzleOrderRepository } from './infrastructure/db/drizzle-order.repository.js';
 import { DrizzleSeatRepository } from './infrastructure/db/drizzle-seat.repository.js';
 import { DrizzleUsageBudgetRepository } from './infrastructure/db/drizzle-usage-budget.repository.js';
 import { DrizzleUserRepository } from './infrastructure/db/drizzle-user.repository.js';
-import { runMigrations } from './infrastructure/db/migrate.js';
 import { jwtTokenSigner } from './infrastructure/auth/jwt.js';
 import { createStripeClient } from './infrastructure/payment/stripe-config.js';
 import { StripePaymentService } from './infrastructure/payment/stripe-payment.service.js';
@@ -52,16 +51,13 @@ if (!STRIPE_WEBHOOK_SECRET) {
   console.warn('⚠️  STRIPE_WEBHOOK_SECRET is not set — Stripe webhook deliveries will fail signature verification');
 }
 
-// Run migrations before starting server
-await runMigrations();
-
 const app = Fastify({
   logger: true
 });
 
 // Plugins
 await app.register(helmet);
-await app.register(cors, { origin: '*' });
+await app.register(cors, { origin: FRONTEND_URL });
 
 /**
  * Raw body capture for Stripe webhook signature verification. `global:
@@ -163,7 +159,13 @@ await app.register(authRoutes, { userService });
 
 // Health check
 app.get('/health', async (request, reply) => {
-  return { status: 'ok' };
+  try {
+    await pool.query('SELECT 1');
+    return { status: 'ok', database: 'ok' };
+  } catch (error) {
+    request.log.error(error, 'Health check database query failed');
+    return reply.code(503).send({ status: 'degraded', database: 'unreachable' });
+  }
 });
 
 // Start server
@@ -171,3 +173,9 @@ const PORT = Number(process.env.PORT) || 3000;
 await app.listen({ port: PORT, host: '0.0.0.0' });
 
 console.log(`✅ Server running on http://localhost:${PORT}`);
+
+for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+  process.on(signal, () => {
+    void app.close().then(() => pool.end()).finally(() => process.exit(0));
+  });
+}

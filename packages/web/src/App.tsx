@@ -56,12 +56,32 @@ function Header() {
   );
 }
 
+/**
+ * Deployment-only notice for the public demo, gated on VITE_DEMO_MODE so
+ * it never shows in local dev. Kept inline here rather than promoted to
+ * components/ui: it's a single-purpose, env-flag-gated banner with one
+ * call site, not a generic reusable element — extracting a primitive for
+ * one consumer would be a speculative abstraction (see CLAUDE.md's
+ * "genuinely specific to one feature" carve-out for components/ui reuse).
+ */
+function DemoBanner() {
+  if (import.meta.env.VITE_DEMO_MODE !== 'true') {
+    return null;
+  }
+  return (
+    <div className={styles.demoBanner}>
+      Demo — Stripe test mode. Pay with card 4242 4242 4242 4242, any future expiry, any CVC.
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
           <div className={styles.app}>
+            <DemoBanner />
             <Header />
             <main className={styles.main}>
               <Routes>
