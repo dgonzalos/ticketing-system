@@ -1,9 +1,10 @@
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
-import { BrowserRouter, Route, Routes, useParams } from 'react-router-dom';
+import { BrowserRouter, Link, Route, Routes, useParams } from 'react-router-dom';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Button } from './components/ui';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
+import { AdminAssistantScreen } from './screens/AdminAssistantScreen';
 import { CheckoutScreen } from './screens/CheckoutScreen';
 import { EventsScreen } from './screens/EventsScreen';
 import { LoginScreen } from './screens/LoginScreen';
@@ -40,6 +41,11 @@ function Header() {
       <h1>Ticketing System</h1>
       {user && (
         <div className={styles.userMenu}>
+          {user.role === 'admin' && (
+            <Link to="/admin/assistant" className={styles.adminLink}>
+              Assistant
+            </Link>
+          )}
           <span className={styles.userEmail}>{user.email}</span>
           <Button variant="secondary" size="sm" onClick={logout}>
             Log out
@@ -73,6 +79,12 @@ export default function App() {
                 <Route
                   path="/order/:orderId/payment-success"
                   element={<ProtectedRoute element={<PaymentSuccessScreen />} />}
+                />
+
+                {/* Admin-only */}
+                <Route
+                  path="/admin/assistant"
+                  element={<ProtectedRoute element={<AdminAssistantScreen />} adminOnly />}
                 />
               </Routes>
             </main>

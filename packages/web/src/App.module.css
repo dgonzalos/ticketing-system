@@ -30,6 +30,15 @@
   color: var(--color-text-secondary);
 }
 
+.adminLink {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.adminLink:hover {
+  color: var(--color-accent-solid-hover);
+}
+
 .main {
   flex: 1;
   padding: var(--space-8);

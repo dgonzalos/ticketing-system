@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# This job only checks out code and runs local builds/tests — it never
+# pushes, comments, or calls the GitHub API, so it needs no more than
+# read access to the repo contents.
+permissions:
+  contents: read
+
+# A new push to the same branch cancels the previous run rather than
+# queueing behind it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Must come BEFORE setup-node: `cache: pnpm` needs pnpm on PATH to
+      # locate the store. Version is read from the root package.json's
+      # `packageManager` field, so it is never specified twice.
+      - uses: pnpm/action-setup@v4
+
+      # Node version comes from .nvmrc — one source of truth shared with
+      # the dev machine and Railway.
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # Exactly the install Railway will run. Fails loudly if the lockfile
+      # is missing or out of sync with the manifests.
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Exactly the build Railway will run. Also the API's typecheck,
+      # since `tsc` both checks and emits here.
+      - name: Build API
+        run: pnpm --filter @ticketing/api build
+
+      # `vite build` does not typecheck — this is the web package's only
+      # real type safety in CI.
+      - name: Typecheck web
+        run: pnpm --filter @ticketing/web typecheck
+
+      - name: Build web
+        run: pnpm --filter @ticketing/web build
+
+      - name: Check for raw color literals
+        run: pnpm --filter @ticketing/web check:no-raw-colors
+
+      - name: API unit tests
+        run: pnpm --filter @ticketing/api test
+
+      - name: Web tests
+        run: pnpm --filter @ticketing/web test

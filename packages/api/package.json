@@ -1,6 +1,9 @@
 {
   "name": "@ticketing/api",
   "version": "1.0.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -30,7 +33,7 @@
     "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
-    "@types/node": "^20.19.43",
+    "@types/node": "^24.0.0",
     "@types/pg": "^8.10.9",
     "@vitest/coverage-v8": "^1.0.0",
     "@vitest/ui": "^1.0.0",
