@@ -14,8 +14,11 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/infrastructure/db/migrate.ts",
     "db:migrate:prod": "node dist/infrastructure/db/migrate.js",
+    "db:migrate:neon": "tsx --env-file=../../.env.neon src/infrastructure/db/migrate.ts",
     "db:seed": "tsx src/infrastructure/db/seed.ts",
-    "db:seed-admin": "tsx src/infrastructure/db/seed-admin.ts"
+    "db:seed:neon": "tsx --env-file=../../.env.neon src/infrastructure/db/seed.ts",
+    "db:seed-admin": "tsx src/infrastructure/db/seed-admin.ts",
+    "db:seed-admin:neon": "tsx --env-file=../../.env.neon src/infrastructure/db/seed-admin.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",

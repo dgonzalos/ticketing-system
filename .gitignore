@@ -4,6 +4,7 @@ dist/
 build/
 .env
 .env.local
+.env.neon
 *.log
 .DS_Store
 .vscode
