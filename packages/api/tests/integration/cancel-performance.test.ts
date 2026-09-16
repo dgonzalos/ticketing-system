@@ -14,7 +14,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DrizzleEventRepository } from '../../src/infrastructure/db/drizzle-event.repository.js';
 import * as schema from '../../src/infrastructure/db/schema/index.js';
-import { createTestDatabase, type TestDatabase } from './test-db.js';
+import { createTestDatabase, insertTestPerformanceWithSeats, type TestDatabase } from './test-db.js';
 
 describe('DrizzleEventRepository.cancelPerformance', () => {
   let testDb: TestDatabase;
@@ -29,40 +29,8 @@ describe('DrizzleEventRepository.cancelPerformance', () => {
     await testDb?.teardown();
   }, 30000);
 
-  async function insertFixture(seats: Array<Partial<typeof schema.seatsTable.$inferInsert>>): Promise<{
-    eventId: string;
-    performanceId: string;
-  }> {
-    const eventId = randomUUID();
-    const performanceId = randomUUID();
-
-    await testDb.db
-      .insert(schema.eventsTable)
-      .values({ id: eventId, title: 'Integration Test Event', description: null, imageUrl: null });
-
-    await testDb.db.insert(schema.performancesTable).values({
-      id: performanceId,
-      eventId,
-      date: '2026-12-01',
-      time: '20:00:00',
-      venue: 'Test Venue',
-      city: 'Test City',
-      capacity: seats.length,
-    });
-
-    await testDb.db.insert(schema.seatsTable).values(
-      seats.map((seat, i) => ({
-        id: randomUUID(),
-        performanceId,
-        row: 'A',
-        number: i + 1,
-        zone: 'premium',
-        price: 15000,
-        ...seat,
-      })) as (typeof schema.seatsTable.$inferInsert)[]
-    );
-
-    return { eventId, performanceId };
+  async function insertFixture(seats: Array<Partial<typeof schema.seatsTable.$inferInsert>>) {
+    return insertTestPerformanceWithSeats(testDb.db, seats);
   }
 
   it('returns not_found for an unknown performance', async () => {

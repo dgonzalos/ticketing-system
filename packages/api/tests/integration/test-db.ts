@@ -7,6 +7,7 @@
  * load time) so a test can point at its own database instead of the shared
  * dev database (`ticketing_dev`).
  */
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -18,6 +19,15 @@ import * as schema from '../../src/infrastructure/db/schema/index.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../../../..');
 const migrationsFolder = path.join(__dirname, '../../drizzle/migrations');
+
+/**
+ * Explicit connection ceiling for every test database's `Pool` — set below
+ * rather than left as node-postgres's implicit default, so a test that
+ * needs to know the pool's capacity (e.g. to genuinely saturate it for a
+ * concurrency test) can import this constant instead of hardcoding a number
+ * that only agrees with the pool by comment.
+ */
+export const TEST_POOL_MAX = 10;
 
 // Loads the same root .env the rest of the repo uses, so DATABASE_URL /
 // E2E_ADMIN_DATABASE_URL are available without requiring the shell to have
@@ -92,7 +102,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
   // before rethrowing, rather than leaking it: the caller has no `teardown`
   // handle to clean up with until this function actually returns one.
   try {
-    const pool = new Pool({ connectionString: testDatabaseUrl });
+    const pool = new Pool({ connectionString: testDatabaseUrl, max: TEST_POOL_MAX });
     const db = drizzle(pool, { schema });
 
     await migrate(db, { migrationsFolder });
@@ -107,4 +117,58 @@ export async function createTestDatabase(): Promise<TestDatabase> {
     await dropTestDatabase(adminDatabaseUrl, dbName);
     throw err;
   }
+}
+
+const DEFAULT_TEST_SLOT = { date: '2026-12-01', time: '20:00:00', venue: 'Test Venue', city: 'Test City' };
+
+/**
+ * Inserts a minimal event row for a test fixture. Shared by every
+ * integration test that needs *an* event to hang a performance off of but
+ * doesn't care about its content.
+ */
+export async function insertTestEvent(
+  db: NodePgDatabase<typeof schema>,
+  overrides: Partial<typeof schema.eventsTable.$inferInsert> = {}
+): Promise<string> {
+  const id = overrides.id ?? randomUUID();
+  await db.insert(schema.eventsTable).values({ title: 'Integration Test Event', description: null, imageUrl: null, ...overrides, id });
+  return id;
+}
+
+/**
+ * Inserts an event, a performance, and the given seats directly (bypassing
+ * `generateSeatMap` — callers that need a handful of seats in specific
+ * states, not a full generated venue). Shared by every integration test
+ * that needs this exact shape, so a schema change only has one call site to
+ * update instead of one per test file.
+ */
+export async function insertTestPerformanceWithSeats(
+  db: NodePgDatabase<typeof schema>,
+  seats: Array<Partial<typeof schema.seatsTable.$inferInsert>>,
+  overrides: Partial<typeof schema.performancesTable.$inferInsert> = {}
+): Promise<{ eventId: string; performanceId: string; seatIds: string[] }> {
+  const eventId = await insertTestEvent(db);
+  const performanceId = randomUUID();
+
+  await db.insert(schema.performancesTable).values({
+    id: performanceId,
+    eventId,
+    ...DEFAULT_TEST_SLOT,
+    capacity: seats.length,
+    ...overrides,
+  });
+
+  const rows = seats.map((seat, i) => ({
+    id: randomUUID(),
+    performanceId,
+    row: 'A',
+    number: i + 1,
+    zone: 'premium',
+    price: 15000,
+    ...seat,
+  })) as (typeof schema.seatsTable.$inferInsert)[];
+
+  await db.insert(schema.seatsTable).values(rows);
+
+  return { eventId, performanceId, seatIds: rows.map((r) => r.id) };
 }

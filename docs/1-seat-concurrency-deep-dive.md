@@ -1,5 +1,10 @@
 # 1. SEAT CONCURRENCY — Deep Dive
 
+> The executable form of the argument this document makes lives in
+> [`packages/api/tests/integration/seat-lock-concurrency.test.ts`](../packages/api/tests/integration/seat-lock-concurrency.test.ts) —
+> it races real concurrent transactions for the same seat row against a real
+> Postgres database and asserts only one can win.
+
 ## THE PROBLEM
 
 Imagine:

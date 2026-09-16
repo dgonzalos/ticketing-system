@@ -39,9 +39,136 @@
   --color-seat-blocked-text: var(--color-text-disabled);
   --color-seat-selected-border: var(--color-accent-solid);
   --color-seat-selected-glow: var(--blue-a5);
+
+  --color-bg-subtle: var(--slate-3);
+  --color-border-strong: var(--slate-8);
+  --color-seat-selected-bg: var(--color-accent-solid);
+  --color-seat-selected-text: var(--color-text-on-accent);
+  --color-poster-1: var(--blue-9);
+  --color-poster-2: var(--blue-10);
+  --color-poster-3: var(--slate-11);
+  --color-poster-text: var(--white-a12);
+  --radius-card: var(--radius-md);
+  --radius-control: var(--radius-sm);
+
+  /* palette picker swatches: theme-independent on purpose */
+  --color-palette-swatch-walnut: var(--walnut-9);
+  --color-palette-swatch-terracotta: var(--terracotta-9);
+  --color-palette-swatch-olive: var(--olive-9);
 }
 
-/* Radix's dark files redefine what --slate-N/--blue-N etc. *are* once .dark
-   is present, so every var(--slate-N) reference above already resolves to
-   the dark value automatically — no restatement needed. Add a token here
-   only when its dark-mode step should diverge from the light-mode one. */
+/*
+ * Two independent mechanisms layer on top of this bare :root block:
+ *  - `.dark` on <html>: Radix's dark stylesheets redefine what --slate-N /
+ *    --blue-N etc. *are*, so every var(--slate-N) reference above already
+ *    resolves to the dark value automatically — no restatement needed here.
+ *  - `[data-palette]` on <html>, light mode only (see the blocks below):
+ *    swaps the *semantic* mappings themselves (--color-bg-canvas and friends)
+ *    to one of the three brand palettes in primitives/palettes.css. It never
+ *    touches Radix scales, so danger/success/warning/reserved-seat colors and
+ *    dark mode are unaffected. The two mechanisms are deliberately kept from
+ *    fighting each other: palette selectors are scoped `:root:not(.dark)`, so
+ *    if .dark is ever set the app falls back to this slate/blue block.
+ */
+
+:root:not(.dark)[data-palette='walnut'] {
+  --color-bg-canvas: var(--walnut-2);
+  --color-bg-surface: var(--walnut-1);
+  --color-bg-subtle: var(--walnut-4);
+  --color-border-default: var(--walnut-5);
+  --color-border-strong: var(--walnut-6);
+  --color-text-primary: var(--walnut-11);
+  --color-text-secondary: var(--walnut-8);
+  --color-text-disabled: var(--walnut-7);
+
+  --color-accent-solid: var(--walnut-9);
+  --color-accent-solid-hover: var(--walnut-10);
+  --color-accent-border: var(--walnut-6);
+  --color-focus-ring: color-mix(in srgb, var(--walnut-9) 45%, transparent);
+
+  --color-poster-1: var(--walnut-poster-1);
+  --color-poster-2: var(--walnut-poster-2);
+  --color-poster-3: var(--walnut-poster-3);
+  --color-poster-text: var(--walnut-poster-text);
+
+  --color-seat-available-bg: var(--walnut-4);
+  --color-seat-available-border: var(--walnut-9);
+  --color-seat-available-text: var(--walnut-9);
+  --color-seat-sold-bg: var(--walnut-3);
+  --color-seat-sold-border: var(--walnut-5);
+  --color-seat-sold-text: var(--walnut-7);
+  --color-seat-blocked-bg: transparent;
+  --color-seat-blocked-border: var(--walnut-5);
+  --color-seat-blocked-text: var(--walnut-7);
+
+  --radius-card: var(--radius-xl);
+  --radius-control: var(--radius-md);
+}
+
+:root:not(.dark)[data-palette='terracotta'] {
+  --color-bg-canvas: var(--terracotta-2);
+  --color-bg-surface: var(--terracotta-1);
+  --color-bg-subtle: var(--terracotta-4);
+  --color-border-default: var(--terracotta-5);
+  --color-border-strong: var(--terracotta-6);
+  --color-text-primary: var(--terracotta-11);
+  --color-text-secondary: var(--terracotta-8);
+  --color-text-disabled: var(--terracotta-7);
+
+  --color-accent-solid: var(--terracotta-9);
+  --color-accent-solid-hover: var(--terracotta-10);
+  --color-accent-border: var(--terracotta-6);
+  --color-focus-ring: color-mix(in srgb, var(--terracotta-9) 45%, transparent);
+
+  --color-poster-1: var(--terracotta-poster-1);
+  --color-poster-2: var(--terracotta-poster-2);
+  --color-poster-3: var(--terracotta-poster-3);
+  --color-poster-text: var(--terracotta-poster-text);
+
+  --color-seat-available-bg: var(--terracotta-4);
+  --color-seat-available-border: var(--terracotta-9);
+  --color-seat-available-text: var(--terracotta-9);
+  --color-seat-sold-bg: var(--terracotta-3);
+  --color-seat-sold-border: var(--terracotta-5);
+  --color-seat-sold-text: var(--terracotta-7);
+  --color-seat-blocked-bg: transparent;
+  --color-seat-blocked-border: var(--terracotta-5);
+  --color-seat-blocked-text: var(--terracotta-7);
+
+  --radius-card: var(--radius-2xl);
+  --radius-control: var(--radius-lg);
+}
+
+:root:not(.dark)[data-palette='olive'] {
+  --color-bg-canvas: var(--olive-2);
+  --color-bg-surface: var(--olive-1);
+  --color-bg-subtle: var(--olive-4);
+  --color-border-default: var(--olive-5);
+  --color-border-strong: var(--olive-6);
+  --color-text-primary: var(--olive-11);
+  --color-text-secondary: var(--olive-8);
+  --color-text-disabled: var(--olive-7);
+
+  --color-accent-solid: var(--olive-9);
+  --color-accent-solid-hover: var(--olive-10);
+  --color-accent-border: var(--olive-6);
+  --color-focus-ring: color-mix(in srgb, var(--olive-9) 45%, transparent);
+
+  --color-poster-1: var(--olive-poster-1);
+  --color-poster-2: var(--olive-poster-2);
+  --color-poster-3: var(--olive-poster-3);
+  --color-poster-text: var(--olive-poster-text);
+
+  --color-seat-available-bg: var(--olive-4);
+  --color-seat-available-border: var(--olive-9);
+  --color-seat-available-text: var(--olive-9);
+  --color-seat-sold-bg: var(--olive-3);
+  --color-seat-sold-border: var(--olive-5);
+  --color-seat-sold-text: var(--olive-7);
+  --color-seat-blocked-bg: transparent;
+  --color-seat-blocked-border: var(--olive-5);
+  --color-seat-blocked-text: var(--olive-7);
+
+  --radius-card: var(--radius-md);
+  --radius-control: var(--radius-sm);
+}

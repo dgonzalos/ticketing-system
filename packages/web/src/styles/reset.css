@@ -13,5 +13,6 @@ p {
 }
 
 body {
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-family-body);
+  line-height: 1.5;
 }

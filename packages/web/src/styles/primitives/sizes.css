@@ -1,0 +1,10 @@
+:root {
+  --size-content-wide: 70rem;    /* 1120px: events grid */
+  --size-content-split: 62.5rem; /* 1000px: seat map / checkout + sidebar */
+  --size-content-list: 45rem;    /* 720px: performances, order/payment screens */
+  --size-content-form: 26.25rem; /* 420px: login / signup */
+  --size-sidebar: 18.75rem;      /* 300px */
+  --size-seat-width: 3.125rem;   /* 50px */
+  --size-seat-height: 2.875rem;  /* 46px */
+  --size-seat-compact: 2.25rem;  /* 36px, phone */
+}

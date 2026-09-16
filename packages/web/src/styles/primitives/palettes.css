@@ -1,0 +1,28 @@
+/*
+ * Brand palettes for the three user-selectable themes. Source: the redesign
+ * prototype. Raw hex is allowed ONLY in this file: see check-no-raw-colors.mjs.
+ * Components must never reference these directly; semantic.css maps them.
+ *
+ * Step roles: 1 surface · 2 canvas · 3 sold-seat bg · 4 subtle bg · 5 border ·
+ * 6 strong border · 7 sold-seat text · 8 secondary text · 9 accent solid ·
+ * 10 accent hover · 11 primary text. poster-1..3 are decorative card headers.
+ */
+:root {
+  --walnut-1: #fffcf7;  --walnut-2: #f5efe5;  --walnut-3: #ece5db;  --walnut-4: #e9ddcb;
+  --walnut-5: #ded2c2;  --walnut-6: #8f7a67;  --walnut-7: #6f665d;  --walnut-8: #6b5d51;
+  --walnut-9: #694b38;  --walnut-10: #573d2d; --walnut-11: #382d26;
+  --walnut-poster-1: #594334; --walnut-poster-2: #7a5644; --walnut-poster-3: #5f5a45;
+  --walnut-poster-text: #f6ebdb;
+
+  --terracotta-1: #fffbf6;  --terracotta-2: #f8f1e9;  --terracotta-3: #eee4da;  --terracotta-4: #efded0;
+  --terracotta-5: #e2d0c1;  --terracotta-6: #9a7a6a;  --terracotta-7: #6c6058;  --terracotta-8: #715a4f;
+  --terracotta-9: #8a4f3b;  --terracotta-10: #733f2e; --terracotta-11: #422f28;
+  --terracotta-poster-1: #7a4534; --terracotta-poster-2: #9a5d45; --terracotta-poster-3: #6a5040;
+  --terracotta-poster-text: #fbeee3;
+
+  --olive-1: #fffdf6;  --olive-2: #f5f1e5;  --olive-3: #ebe7da;  --olive-4: #e9e3ce;
+  --olive-5: #ded8c4;  --olive-6: #86826a;  --olive-7: #6b685a;  --olive-8: #636049;
+  --olive-9: #62603f;  --olive-10: #4f4d31; --olive-11: #383729;
+  --olive-poster-1: #55533a; --olive-poster-2: #6e6a48; --olive-poster-3: #7a5b43;
+  --olive-poster-text: #f5f0dc;
+}

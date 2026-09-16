@@ -17,7 +17,7 @@ import { PerformanceAlreadyScheduledError } from '../../src/domain/common/errors
 import type { NewPerformanceInput } from '../../src/domain/events/event.repository.js';
 import { generateSeatMap } from '../../src/domain/seats/seat-map.js';
 import * as schema from '../../src/infrastructure/db/schema/index.js';
-import { createTestDatabase, type TestDatabase } from './test-db.js';
+import { createTestDatabase, insertTestEvent, type TestDatabase } from './test-db.js';
 
 const SLOT = { date: '2026-12-01', time: '20:00:00', venue: 'Test Venue', city: 'Test City' };
 
@@ -35,11 +35,7 @@ describe('DrizzleEventRepository.createPerformances', () => {
   }, 30000);
 
   async function insertEvent(): Promise<string> {
-    const eventId = randomUUID();
-    await testDb.db
-      .insert(schema.eventsTable)
-      .values({ id: eventId, title: 'Integration Test Event', description: null, imageUrl: null });
-    return eventId;
+    return insertTestEvent(testDb.db);
   }
 
   function performanceInput(eventId: string, overrides: Partial<NewPerformanceInput> = {}): NewPerformanceInput {
