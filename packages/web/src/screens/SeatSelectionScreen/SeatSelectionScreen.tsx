@@ -1,4 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom';
+import clsx from 'clsx';
 import { SeatMap } from '../../components/Seats';
 import { BackLink, Button, Card } from '../../components/ui';
 import { useAuth } from '../../hooks/useAuth';
@@ -36,6 +37,23 @@ export function SeatSelectionScreen() {
   return (
     <div className={styles.screen}>
       <BackLink to={`/events/${eventId}`}>Back to performances</BackLink>
+      <ul className={styles.legend}>
+        <li>
+          <span className={clsx(styles.legendSwatch, styles.legendAvailable)} aria-hidden="true" /> Available
+        </li>
+        <li>
+          <span className={clsx(styles.legendSwatch, styles.legendSelected)} aria-hidden="true" /> Your selection
+        </li>
+        <li>
+          <span className={clsx(styles.legendSwatch, styles.legendReserved)} aria-hidden="true" /> Reserved
+        </li>
+        <li>
+          <span className={clsx(styles.legendSwatch, styles.legendSold)} aria-hidden="true" /> Sold
+        </li>
+        <li>
+          <span className={clsx(styles.legendSwatch, styles.legendBlocked)} aria-hidden="true" /> Unavailable
+        </li>
+      </ul>
       <div className={styles.layout}>
         <SeatMap seats={seats} selectedSeatIds={selectedSeatIds} onSeatSelect={onSeatSelect} />
 
@@ -44,16 +62,10 @@ export function SeatSelectionScreen() {
           <p>{selectedSeatIds.length} seat(s) selected</p>
           <p className={styles.total}>{formatCents(totalPrice)}</p>
           {selectError && <p className={styles.error}>{(selectError as Error).message}</p>}
-          <Button
-            className={styles.summaryButton}
-            fullWidth
-            disabled={selectedSeatIds.length === 0}
-            onClick={goToCheckout}
-          >
+          <Button fullWidth disabled={selectedSeatIds.length === 0} onClick={goToCheckout}>
             Checkout
           </Button>
           <Button
-            className={styles.summaryButton}
             fullWidth
             variant="secondary"
             disabled={selectedSeatIds.length === 0}

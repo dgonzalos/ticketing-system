@@ -45,7 +45,7 @@ export function LoginScreen() {
 
   return (
     <div className={styles.screen}>
-      <Card as="section">
+      <Card as="section" className={styles.card}>
         <h1 className={styles.heading}>Log In</h1>
         <Input
           label="Email address"

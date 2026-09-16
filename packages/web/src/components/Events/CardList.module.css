@@ -13,5 +13,5 @@
 }
 
 .item:hover {
-  border-color: var(--color-accent-border);
+  border-color: var(--color-border-strong);
 }

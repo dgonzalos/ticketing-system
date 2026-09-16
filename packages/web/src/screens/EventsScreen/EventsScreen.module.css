@@ -1,3 +1,18 @@
+.screen {
+  width: 100%;
+  justify-self: center;
+  max-width: var(--size-content-wide);
+  display: grid;
+  gap: var(--space-7);
+}
+
+.sectionHeading {
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-weight: var(--font-weight-regular);
+  font-size: var(--font-size-4);
+}
+
 .loading,
 .error {
   color: var(--color-text-secondary);

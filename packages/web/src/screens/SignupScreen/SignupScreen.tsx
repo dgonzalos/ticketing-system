@@ -57,7 +57,7 @@ export function SignupScreen() {
 
   return (
     <div className={styles.screen}>
-      <Card as="section">
+      <Card as="section" className={styles.card}>
         <h1 className={styles.heading}>Sign Up</h1>
         <Input
           label="Email address"

@@ -1,26 +1,87 @@
 .screen {
+  width: 100%;
+  justify-self: center;
+  max-width: var(--size-content-split);
+  display: grid;
+  gap: var(--space-7);
+}
+
+.legend {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2);
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.legendSwatch {
+  display: inline-block;
+  width: var(--space-5);
+  height: var(--space-5);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+}
+
+.legendAvailable {
+  background-color: var(--color-seat-available-bg);
+  border-color: var(--color-seat-available-border);
+}
+
+.legendSelected {
+  background-color: var(--color-seat-selected-bg);
+  border-color: var(--color-seat-selected-border);
+}
+
+.legendReserved {
+  background-color: var(--color-seat-reserved-bg);
+  border-color: var(--color-seat-reserved-border);
+}
+
+.legendSold {
+  background-color: var(--color-seat-sold-bg);
+  border-color: var(--color-seat-sold-border);
+}
+
+.legendBlocked {
+  background-color: var(--color-seat-blocked-bg);
+  border-color: var(--color-seat-blocked-border);
+  border-style: dashed;
 }
 
 .layout {
-  display: flex;
-  gap: var(--space-8);
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--size-sidebar);
+  gap: var(--space-7);
+  align-items: start;
+}
+
+/* 820px: split layouts stack */
+@media (max-width: 51.25rem) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .summary {
-  min-width: 220px;
+  display: grid;
+  gap: var(--space-4);
 }
 
 .summary h2 {
-  margin: 0 0 var(--space-4) 0;
-  font-size: var(--font-size-3);
-}
-
-.summaryButton {
-  margin-top: var(--space-3);
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-weight: var(--font-weight-regular);
+  font-size: var(--font-size-4);
 }
 
 .total {
@@ -28,7 +89,8 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.loading {
+.loading,
+.error {
   color: var(--color-text-secondary);
 }
 

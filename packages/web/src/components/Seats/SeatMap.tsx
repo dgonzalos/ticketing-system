@@ -23,6 +23,9 @@ function groupByRow(seats: Seat[]): Array<[string, Seat[]]> {
 export function SeatMap({ seats, selectedSeatIds, onSeatSelect }: SeatMapProps) {
   return (
     <div className={styles.seatMap}>
+      <div className={styles.stage} aria-hidden="true">
+        Stage
+      </div>
       {groupByRow(seats).map(([row, rowSeats]) => (
         <div key={row} className={styles.row}>
           <span className={styles.rowLabel}>{row}</span>

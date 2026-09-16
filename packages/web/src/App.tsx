@@ -1,5 +1,6 @@
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { BrowserRouter, Link, Route, Routes, useParams } from 'react-router-dom';
+import { ThemeSwitcher } from './components/ThemeSwitcher';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Button } from './components/ui';
 import { AuthProvider } from './context/AuthContext';
@@ -33,25 +34,30 @@ function SeatSelectionRoute() {
   return <ProtectedRoute element={<SeatSelectionScreen key={performanceId} />} />;
 }
 
-/** App header: title, plus the signed-in user's email and a logout button once authenticated. */
+/** App header: title, theme switcher (always shown), plus the signed-in user's email and a logout button once authenticated. */
 function Header() {
   const { user, logout } = useAuth();
   return (
     <header className={styles.header}>
-      <h1>Ticketing System</h1>
-      {user && (
+      <div className={styles.headerInner}>
+        <h1>Ticketing System</h1>
         <div className={styles.userMenu}>
-          {user.role === 'admin' && (
-            <Link to="/admin/assistant" className={styles.adminLink}>
-              Assistant
-            </Link>
+          <ThemeSwitcher />
+          {user && (
+            <>
+              {user.role === 'admin' && (
+                <Link to="/admin/assistant" className={styles.adminLink}>
+                  Assistant
+                </Link>
+              )}
+              <span className={styles.userEmail}>{user.email}</span>
+              <Button variant="secondary" size="sm" onClick={logout}>
+                Log out
+              </Button>
+            </>
           )}
-          <span className={styles.userEmail}>{user.email}</span>
-          <Button variant="secondary" size="sm" onClick={logout}>
-            Log out
-          </Button>
         </div>
-      )}
+      </div>
     </header>
   );
 }

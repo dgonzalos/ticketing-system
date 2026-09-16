@@ -51,10 +51,10 @@
   --radius-card: var(--radius-md);
   --radius-control: var(--radius-sm);
 
-  /* palette picker swatches: theme-independent on purpose */
-  --color-palette-swatch-walnut: var(--walnut-9);
-  --color-palette-swatch-terracotta: var(--terracotta-9);
-  --color-palette-swatch-olive: var(--olive-9);
+  /* theme picker swatches: independent of light/dark mode on purpose */
+  --color-theme-swatch-1: var(--walnut-9);
+  --color-theme-swatch-2: var(--terracotta-9);
+  --color-theme-swatch-3: var(--olive-9);
 }
 
 /*
@@ -62,16 +62,16 @@
  *  - `.dark` on <html>: Radix's dark stylesheets redefine what --slate-N /
  *    --blue-N etc. *are*, so every var(--slate-N) reference above already
  *    resolves to the dark value automatically — no restatement needed here.
- *  - `[data-palette]` on <html>, light mode only (see the blocks below):
- *    swaps the *semantic* mappings themselves (--color-bg-canvas and friends)
- *    to one of the three brand palettes in primitives/palettes.css. It never
+ *  - `[data-theme]` on <html>, light mode only (see the blocks below): swaps
+ *    the *semantic* mappings themselves (--color-bg-canvas and friends) to one
+ *    of the three brand color themes in primitives/theme-colors.css. It never
  *    touches Radix scales, so danger/success/warning/reserved-seat colors and
  *    dark mode are unaffected. The two mechanisms are deliberately kept from
- *    fighting each other: palette selectors are scoped `:root:not(.dark)`, so
- *    if .dark is ever set the app falls back to this slate/blue block.
+ *    fighting each other: theme selectors are scoped `:root:not(.dark)`, so if
+ *    .dark is ever set the app falls back to this slate/blue block.
  */
 
-:root:not(.dark)[data-palette='walnut'] {
+:root:not(.dark)[data-theme='1'] {
   --color-bg-canvas: var(--walnut-2);
   --color-bg-surface: var(--walnut-1);
   --color-bg-subtle: var(--walnut-4);
@@ -94,9 +94,9 @@
   --color-seat-available-bg: var(--walnut-4);
   --color-seat-available-border: var(--walnut-9);
   --color-seat-available-text: var(--walnut-9);
-  --color-seat-sold-bg: var(--walnut-3);
-  --color-seat-sold-border: var(--walnut-5);
-  --color-seat-sold-text: var(--walnut-7);
+  --color-seat-sold-bg: var(--seat-sold-neutral-bg);
+  --color-seat-sold-border: var(--seat-sold-neutral-border);
+  --color-seat-sold-text: var(--seat-sold-neutral-text);
   --color-seat-blocked-bg: transparent;
   --color-seat-blocked-border: var(--walnut-5);
   --color-seat-blocked-text: var(--walnut-7);
@@ -105,7 +105,7 @@
   --radius-control: var(--radius-md);
 }
 
-:root:not(.dark)[data-palette='terracotta'] {
+:root:not(.dark)[data-theme='2'] {
   --color-bg-canvas: var(--terracotta-2);
   --color-bg-surface: var(--terracotta-1);
   --color-bg-subtle: var(--terracotta-4);
@@ -128,9 +128,9 @@
   --color-seat-available-bg: var(--terracotta-4);
   --color-seat-available-border: var(--terracotta-9);
   --color-seat-available-text: var(--terracotta-9);
-  --color-seat-sold-bg: var(--terracotta-3);
-  --color-seat-sold-border: var(--terracotta-5);
-  --color-seat-sold-text: var(--terracotta-7);
+  --color-seat-sold-bg: var(--seat-sold-neutral-bg);
+  --color-seat-sold-border: var(--seat-sold-neutral-border);
+  --color-seat-sold-text: var(--seat-sold-neutral-text);
   --color-seat-blocked-bg: transparent;
   --color-seat-blocked-border: var(--terracotta-5);
   --color-seat-blocked-text: var(--terracotta-7);
@@ -139,7 +139,7 @@
   --radius-control: var(--radius-lg);
 }
 
-:root:not(.dark)[data-palette='olive'] {
+:root:not(.dark)[data-theme='3'] {
   --color-bg-canvas: var(--olive-2);
   --color-bg-surface: var(--olive-1);
   --color-bg-subtle: var(--olive-4);
@@ -162,9 +162,9 @@
   --color-seat-available-bg: var(--olive-4);
   --color-seat-available-border: var(--olive-9);
   --color-seat-available-text: var(--olive-9);
-  --color-seat-sold-bg: var(--olive-3);
-  --color-seat-sold-border: var(--olive-5);
-  --color-seat-sold-text: var(--olive-7);
+  --color-seat-sold-bg: var(--seat-sold-neutral-bg);
+  --color-seat-sold-border: var(--seat-sold-neutral-border);
+  --color-seat-sold-text: var(--seat-sold-neutral-text);
   --color-seat-blocked-bg: transparent;
   --color-seat-blocked-border: var(--olive-5);
   --color-seat-blocked-text: var(--olive-7);

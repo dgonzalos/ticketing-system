@@ -1,0 +1,50 @@
+.group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: 999px;
+  background-color: var(--color-bg-canvas);
+  border: 1px solid var(--color-border-default);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background-color: transparent;
+  cursor: pointer;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.pressed {
+  background-color: var(--color-bg-subtle);
+  box-shadow: 0 0 0 2px var(--color-bg-surface), 0 0 0 4px var(--color-accent-solid);
+}
+
+.swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+}
+
+.swatch1 {
+  background-color: var(--color-theme-swatch-1);
+}
+
+.swatch2 {
+  background-color: var(--color-theme-swatch-2);
+}
+
+.swatch3 {
+  background-color: var(--color-theme-swatch-3);
+}

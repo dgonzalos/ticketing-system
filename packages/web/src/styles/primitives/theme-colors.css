@@ -1,13 +1,25 @@
 /*
- * Brand palettes for the three user-selectable themes. Source: the redesign
- * prototype. Raw hex is allowed ONLY in this file: see check-no-raw-colors.mjs.
+ * Brand color families for the three user-selectable themes. Source: the
+ * redesign prototype. Raw hex is allowed ONLY in this file: see
+ * check-no-raw-colors.mjs.
  * Components must never reference these directly; semantic.css maps them.
  *
- * Step roles: 1 surface · 2 canvas · 3 sold-seat bg · 4 subtle bg · 5 border ·
- * 6 strong border · 7 sold-seat text · 8 secondary text · 9 accent solid ·
- * 10 accent hover · 11 primary text. poster-1..3 are decorative card headers.
+ * Step roles: 1 surface · 2 canvas · 3 unused (see --seat-sold-neutral-* below,
+ * added to match the prototype's theme-independent sold-seat color) ·
+ * 4 subtle bg · 5 border · 6 strong border · 7 disabled text · 8 secondary
+ * text · 9 accent solid · 10 accent hover · 11 primary text. poster-1..3 are
+ * decorative card headers.
  */
 :root {
+  /*
+   * Sold seats are one flat neutral across all three themes, matching the
+   * prototype (its .seat:disabled color never varies with data-theme) —
+   * deliberately not sourced from the walnut/terracotta/olive scales below.
+   */
+  --seat-sold-neutral-bg: #eee8e0;
+  --seat-sold-neutral-border: #ded7ce;
+  --seat-sold-neutral-text: #756d64;
+
   --walnut-1: #fffcf7;  --walnut-2: #f5efe5;  --walnut-3: #ece5db;  --walnut-4: #e9ddcb;
   --walnut-5: #ded2c2;  --walnut-6: #8f7a67;  --walnut-7: #6f665d;  --walnut-8: #6b5d51;
   --walnut-9: #694b38;  --walnut-10: #573d2d; --walnut-11: #382d26;

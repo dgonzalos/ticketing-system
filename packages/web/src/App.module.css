@@ -1,7 +1,7 @@
 .app {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto auto 1fr; /* banner (or nothing), header, main */
   background-color: var(--color-bg-canvas);
   color: var(--color-text-primary);
 }
@@ -16,21 +16,30 @@
 
 .header {
   background-color: var(--color-bg-surface);
-  padding: var(--space-5);
   border-bottom: 1px solid var(--color-border-default);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
 }
 
-.header h1 {
+.headerInner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  max-width: var(--size-content-wide);
+  margin-inline: auto;
+  padding: var(--space-5) var(--space-8);
+}
+
+.headerInner h1 {
   margin: 0;
-  font-size: var(--font-size-5);
+  font-family: var(--font-family-display);
+  font-weight: var(--font-weight-regular);
+  font-size: var(--font-size-4);
 }
 
 .userMenu {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: end;
   gap: var(--space-3);
 }
 
@@ -48,6 +57,41 @@
 }
 
 .main {
-  flex: 1;
-  padding: var(--space-8);
+  grid-row: -2 / -1; /* always the 1fr row, whether or not the banner renders */
+  display: grid;
+  grid-template-columns: minmax(0, var(--size-content-wide));
+  grid-template-rows: 1fr; /* explicit row so align-items/align-self below can position within full height */
+  justify-content: center;
+  align-items: start; /* content starts from the top by default; Login/Signup opt into centering (see their .screen) */
+  padding: var(--space-9) var(--space-8);
+}
+
+/* 820px: split layouts stack (see SeatSelectionScreen/CheckoutScreen .layout) */
+@media (max-width: 51.25rem) {
+  .headerInner {
+    padding-inline: var(--space-6);
+  }
+
+  .main {
+    padding-block: var(--space-8);
+    padding-inline: var(--space-6);
+  }
+}
+
+/* 520px: phone */
+@media (max-width: 32.5rem) {
+  .headerInner {
+    grid-template-columns: 1fr;
+    justify-items: start;
+    gap: var(--space-3);
+    padding-inline: var(--space-5);
+  }
+
+  .main {
+    padding-inline: var(--space-5);
+  }
+
+  .userEmail {
+    display: none;
+  }
 }

@@ -1,7 +1,9 @@
 .screen {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+  width: 100%;
+  justify-self: center;
+  max-width: var(--size-content-list);
+  display: grid;
+  gap: var(--space-7);
 }
 
 .loading,

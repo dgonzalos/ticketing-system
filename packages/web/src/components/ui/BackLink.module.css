@@ -2,6 +2,7 @@
   color: var(--color-accent-solid);
   text-decoration: none;
   width: fit-content;
+  justify-self: start;
 }
 
 .link:hover {

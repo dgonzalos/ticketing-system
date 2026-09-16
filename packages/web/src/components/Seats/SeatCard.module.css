@@ -4,10 +4,11 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-1);
-  width: var(--space-9);
-  height: var(--space-9);
-  border-radius: var(--radius-sm);
+  width: var(--size-seat-width);
+  height: var(--size-seat-height);
+  border-radius: 0.4375rem 0.4375rem 0.1875rem 0.1875rem;
   border: 1px solid transparent;
+  font-family: var(--font-family-mono);
   font-size: var(--font-size-2);
   cursor: pointer;
   transition: transform 0.1s ease, background-color 0.15s ease;
@@ -52,9 +53,28 @@
   background-color: var(--color-seat-blocked-bg);
   border-color: var(--color-seat-blocked-border);
   color: var(--color-seat-blocked-text);
+  border-style: dashed;
 }
 
+/*
+ * Must stay after .reserved/.sold/.blocked in source order: a selected seat's
+ * `status` is still 'reserved' (it's the user's own lock), so `.selected` has
+ * to win the cascade over `.reserved` despite both classes being applied to
+ * the same element at equal specificity.
+ */
 .selected {
+  background-color: var(--color-seat-selected-bg);
+  color: var(--color-seat-selected-text);
   border-color: var(--color-seat-selected-border);
-  box-shadow: 0 0 0 2px var(--color-seat-selected-glow);
+}
+
+@media (max-width: 32.5rem) {
+  .seat {
+    width: var(--size-seat-compact);
+    height: var(--size-seat-compact);
+  }
+
+  .price {
+    display: none;
+  }
 }
