@@ -67,8 +67,9 @@
 
 .title {
   margin: 0 0 var(--space-2) 0;
+  font-family: var(--font-family-display);
   font-size: var(--font-size-4);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-regular);
 }
 
 .description {

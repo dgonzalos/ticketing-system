@@ -7,6 +7,7 @@
   border: 1px solid transparent;
   font-weight: var(--font-weight-semibold);
   font-family: inherit;
+  text-decoration: none; /* ButtonLink renders an <a> with these same classes */
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
@@ -59,6 +60,7 @@
   min-height: 2.125rem;
 }
 
+/* No font-size on purpose: md inherits the body size via reset.css's `font: inherit`. */
 .md {
   padding: var(--space-3) var(--space-5);
   min-height: 2.75rem;

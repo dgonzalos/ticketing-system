@@ -12,7 +12,22 @@ p {
   margin: 0;
 }
 
+html {
+  /* Matches the app canvas so overscroll and short pages never show a white band. */
+  background-color: var(--color-bg-canvas);
+}
+
 body {
   font-family: var(--font-family-body);
   line-height: 1.5;
+}
+
+/* Form controls don't inherit typography by default — without this, a
+   `<Card as="button">` renders its contents in the UA font (Arial) and black. */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
 }

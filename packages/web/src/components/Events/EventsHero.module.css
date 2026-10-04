@@ -56,6 +56,17 @@
   color: var(--color-poster-text);
 }
 
+/* 520px: a short strip, so "Now showing" and the first card stay above the fold on a phone */
+@media (max-width: 32.5rem) {
+  .poster {
+    min-height: 7rem;
+  }
+
+  .poster::after {
+    display: none;
+  }
+}
+
 .posterLetter {
   font-family: var(--font-family-display);
   font-style: italic;

@@ -4,8 +4,10 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-1);
-  width: var(--size-seat-width);
-  height: var(--size-seat-height);
+  /* Fills its SeatMap grid column (at most --size-seat-width), keeping the seat's proportions as it shrinks. */
+  width: 100%;
+  aspect-ratio: 50 / 46; /* --size-seat-width / --size-seat-height */
+  padding: 0;
   border-radius: 0.4375rem 0.4375rem 0.1875rem 0.1875rem;
   border: 1px solid transparent;
   font-family: var(--font-family-mono);
@@ -70,8 +72,7 @@
 
 @media (max-width: 32.5rem) {
   .seat {
-    width: var(--size-seat-compact);
-    height: var(--size-seat-compact);
+    aspect-ratio: 1;
   }
 
   .price {

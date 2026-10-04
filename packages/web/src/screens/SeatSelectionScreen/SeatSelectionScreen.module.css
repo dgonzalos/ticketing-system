@@ -97,3 +97,7 @@
 .error {
   color: var(--color-danger-text);
 }
+
+.guestNote {
+  color: var(--color-text-secondary);
+}

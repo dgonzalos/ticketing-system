@@ -1,8 +1,8 @@
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
-import { BrowserRouter, Link, Route, Routes, useParams } from 'react-router-dom';
+import { BrowserRouter, Link, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { ThemeSwitcher } from './components/ThemeSwitcher';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { Button } from './components/ui';
+import { Button, ButtonLink } from './components/ui';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
 import { AdminAssistantScreen } from './screens/AdminAssistantScreen';
@@ -28,21 +28,40 @@ const queryClient = new QueryClient({
  * `useSeatSelection`'s local selection state) on any transition between two
  * performances, even one that doesn't pass through a different route in
  * between.
+ *
+ * Deliberately not wrapped in `ProtectedRoute`: guests may view the seat map
+ * and prices. `SeatSelectionScreen` itself sends a guest to /login at the
+ * moment they choose a seat (see its `handleSeatSelect`).
  */
 function SeatSelectionRoute() {
   const { performanceId } = useParams<{ performanceId: string }>();
-  return <ProtectedRoute element={<SeatSelectionScreen key={performanceId} />} />;
+  return <SeatSelectionScreen key={performanceId} />;
 }
 
-/** App header: title, theme switcher (always shown), plus the signed-in user's email and a logout button once authenticated. */
-function Header() {
+/** Routes that render their own login/signup form — the header's "Log in" link would only duplicate it there. */
+const AUTH_PATHS = ['/login', '/signup'];
+
+/**
+ * App header: title, theme switcher (always shown), plus a "Log in" link for
+ * guests, or the signed-in user's email and a logout button. The "Log in"
+ * link carries `{ from: location }` (the same shape `ProtectedRoute` uses) so
+ * logging in returns to the current page rather than `/`.
+ */
+export function Header() {
   const { user, logout } = useAuth();
+  const location = useLocation();
+  const showLogIn = !user && !AUTH_PATHS.includes(location.pathname);
   return (
     <header className={styles.header}>
       <div className={styles.headerInner}>
         <h1>Ticketing System</h1>
         <div className={styles.userMenu}>
           <ThemeSwitcher />
+          {showLogIn && (
+            <ButtonLink to="/login" state={{ from: location }} variant="secondary" size="sm">
+              Log in
+            </ButtonLink>
+          )}
           {user && (
             <>
               {user.role === 'admin' && (
@@ -91,14 +110,15 @@ export default function App() {
             <Header />
             <main className={styles.main}>
               <Routes>
-                {/* Public — browsing events/performances doesn't require an account. */}
+                {/* Public — browsing events, performances, and a performance's seat map doesn't require an account. */}
                 <Route path="/" element={<EventsScreen />} />
                 <Route path="/events/:eventId" element={<PerformancesScreen />} />
                 <Route path="/login" element={<LoginScreen />} />
                 <Route path="/signup" element={<SignupScreen />} />
-
-                {/* Protected — auth is required starting at seat selection. */}
+                {/* Public route, but auth is required at the moment a seat is chosen — enforced inside SeatSelectionScreen. */}
                 <Route path="/events/:eventId/performances/:performanceId" element={<SeatSelectionRoute />} />
+
+                {/* Protected — everything from checkout onward. */}
                 <Route path="/checkout" element={<ProtectedRoute element={<CheckoutScreen />} />} />
                 <Route path="/order/:orderId" element={<ProtectedRoute element={<OrderConfirmationScreen />} />} />
                 <Route path="/order/:orderId/payment" element={<ProtectedRoute element={<PaymentScreen />} />} />

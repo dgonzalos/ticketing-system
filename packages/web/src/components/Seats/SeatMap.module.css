@@ -33,8 +33,27 @@
   text-align: center;
 }
 
+/*
+ * One line per row, never wrapping: a wrapped row (A1–A7, then A8–A10) no
+ * longer reads as a row of a theatre. Each seat gets an equal column that is
+ * full-size when there's room and shrinks evenly when there isn't (phones),
+ * for any number of seats per row.
+ */
 .seats {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, var(--size-seat-width));
   gap: var(--space-2);
+}
+
+@media (max-width: 32.5rem) {
+  .row {
+    grid-template-columns: var(--space-5) minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+
+  .seats {
+    grid-auto-columns: minmax(0, var(--size-seat-compact));
+    gap: var(--space-1);
+  }
 }

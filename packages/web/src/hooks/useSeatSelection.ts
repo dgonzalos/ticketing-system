@@ -29,6 +29,8 @@ export function useSeatSelection({ performanceId, token }: UseSeatSelectionOptio
 
   const [selectedSeatIds, setSelectedSeatIds] = useState<Set<string>>(new Set());
   const [loadingSeatIds, setLoadingSeatIds] = useState<Set<string>>(new Set());
+  /** The seat whose most recent select lost a race (409 — someone else holds it), so the UI can say so. */
+  const [takenSeatId, setTakenSeatId] = useState<string | null>(null);
 
   const markLoading = (seatId: string) => setLoadingSeatIds((prev) => new Set(prev).add(seatId));
   const clearLoading = (seatId: string) =>
@@ -81,11 +83,13 @@ export function useSeatSelection({ performanceId, token }: UseSeatSelectionOptio
     // built from them stays accurate for every concurrent call, not just the last one.
     onMutate: (seatId: string) => {
       markLoading(seatId);
+      setTakenSeatId(null);
       return optimisticallySetStatus(seatId, 'reserved');
     },
     onSuccess: (result, seatId) => {
       if (!result.success) {
         // Someone else grabbed it first; the invalidate in onSettled below corrects the optimistic status.
+        setTakenSeatId(seatId);
         return;
       }
       setSelectedSeatIds((prev) => new Set(prev).add(seatId));
@@ -145,6 +149,7 @@ export function useSeatSelection({ performanceId, token }: UseSeatSelectionOptio
     isSeatsLoading,
     seatsError,
     selectError: selectMutation.error,
+    takenSeatId,
     onSeatSelect,
     clearSelection,
   };

@@ -2,13 +2,17 @@ import { expect, test } from '@playwright/test';
 
 /**
  * The app's golden path end to end, against seeded data (see
- * packages/api/src/infrastructure/db/seed.ts): a guest picks a performance,
- * is prompted to authenticate (seat selection is protected — see App.tsx's
- * routes), and lands back on that *same* performance's seat map rather than
- * the events homepage — exercising `useAuthRedirect`'s fix for `SignupScreen`
- * previously discarding the redirect target entirely. Then starts checkout
- * as the now-authenticated user, up through the redirect to Stripe's real
- * hosted Checkout page.
+ * packages/api/src/infrastructure/db/seed.ts): a guest picks a performance
+ * and sees its seat map and prices without an account (the seat route is
+ * public — see App.tsx's routes). Choosing a seat prompts them to
+ * authenticate; after signing up they land back on that *same* seat map with
+ * the seat they clicked already selected — exercising `useAuthRedirect`'s
+ * state forwarding and `SeatSelectionScreen`'s `pendingSeatId` auto-select.
+ * Then starts checkout as the now-authenticated user, up through the
+ * redirect to Stripe's real hosted Checkout page.
+ *
+ * Seed dates are relative to the day the seed runs, so performances are
+ * targeted by position (the first in the list), never by a literal date.
  *
  * Deliberately stops there rather than completing a purchase on Stripe's
  * own page: actually finishing payment there and waiting for the resulting
@@ -18,20 +22,21 @@ import { expect, test } from '@playwright/test';
  * harness (see CLAUDE.md's "no CI yet, no Docker" scoping) than verifying
  * checkout actually reaches Stripe.
  */
-test('guest signs up when prompted, returns to the same performance, and completes a purchase', async ({ page }) => {
+test('guest browses the seat map, signs up when choosing a seat, and completes a purchase', async ({ page }) => {
   const email = `e2e-${Date.now()}@example.com`;
   const password = 'correct-horse-battery';
 
   await page.goto('/');
-  await page.getByRole('button', { name: /Hamilton/ }).click();
+  // Anchored: the card's accessible name is its title *plus* its description,
+  // and `^` excludes the hero's "Discover The Lighthouse Keeper →" button.
+  await page.getByRole('button', { name: /^The Lighthouse Keeper/ }).click();
 
-  // Matches perf-1 specifically: it's the only seeded performance on this
-  // date (perf-2 is the same venue, a different date, so venue text alone
-  // would be ambiguous).
-  await page.getByRole('button', { name: /March 14, 2026/ }).click();
+  await page.getByRole('group', { name: 'Performances' }).getByRole('button').first().click();
 
-  // Seat selection is protected (see App.tsx) — not authenticated yet, so
-  // ProtectedRoute redirects to /login.
+  // The seat map is public — a guest sees seats and prices before logging in.
+  // Choosing a seat is what requires an account.
+  await page.getByRole('button', { name: 'Seat A1, Available, 150,00 €' }).click();
+
   await expect(page.getByRole('heading', { name: 'Log In' })).toBeVisible();
   await page.getByRole('link', { name: 'Sign up' }).click();
 
@@ -40,10 +45,8 @@ test('guest signs up when prompted, returns to the same performance, and complet
   await page.getByLabel('Confirm password').fill(password);
   await page.getByRole('button', { name: 'Sign Up' }).click();
 
-  // Regression check for the redirect-state fix: back on *this performance's*
-  // seat map, not bounced to '/' and forced to re-navigate from scratch.
-  const seat = page.getByRole('button', { name: 'Seat A1, Available, 150,00 €' });
-  await seat.click();
+  // Back on *this performance's* seat map with A1 already selected via the
+  // pendingSeatId round trip. Don't click A1 again — that would unlock it.
   await expect(page.getByText('1 seat(s) selected')).toBeVisible();
   await page.getByRole('button', { name: 'Checkout' }).click();
 
