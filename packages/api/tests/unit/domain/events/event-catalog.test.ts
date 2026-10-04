@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EventNotFoundError } from '../../../../src/domain/common/errors/domain-errors.js';
 import { EventCatalog } from '../../../../src/domain/events/event-catalog.js';
-import type { Event, IEventRepository, Performance } from '../../../../src/domain/events/event.repository.js';
+import type { Event, IEventRepository, Performance, PerformanceSummary } from '../../../../src/domain/events/event.repository.js';
 
 function createMockRepository(): IEventRepository {
   return {
@@ -15,6 +15,8 @@ function createMockRepository(): IEventRepository {
     createPerformances: vi.fn(),
     findScheduledPerformance: vi.fn(),
     cancelPerformance: vi.fn(),
+    listEventSummaries: vi.fn(),
+    listPerformanceSummariesByEvent: vi.fn(),
   };
 }
 
@@ -69,5 +71,62 @@ describe('EventCatalog', () => {
 
     expect(error).toBeInstanceOf(EventNotFoundError);
     expect((error as EventNotFoundError).eventId).toBe('missing-event');
+  });
+
+  describe('public summaries', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    const summary = (overrides: Partial<PerformanceSummary>): PerformanceSummary => ({
+      performanceId: 'perf-1',
+      eventId: 'event-1',
+      date: '2026-10-16',
+      time: '19:30:00',
+      venue: 'Teatro Alameda',
+      city: 'Madrid',
+      capacity: 100,
+      status: 'scheduled',
+      availableSeats: 10,
+      fromPriceCents: 5000,
+      heldSeats: 0,
+      ...overrides,
+    });
+
+    it("passes today's UTC date to the repository as the upcoming cutoff", async () => {
+      vi.useFakeTimers();
+      // 23:30 in Madrid on the 16th is still the 16th in UTC.
+      vi.setSystemTime(new Date('2026-10-16T21:30:00Z'));
+      const repository = createMockRepository();
+      (repository.listEventSummaries as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+      const catalog = new EventCatalog(repository);
+
+      await catalog.listEventSummaries();
+
+      expect(repository.listEventSummaries).toHaveBeenCalledWith('2026-10-16');
+    });
+
+    it('lists performance summaries sorted by date then time, with the same cutoff', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-10-01T12:00:00Z'));
+      const repository = createMockRepository();
+      (repository.findEventById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(event);
+      const later = summary({ performanceId: 'perf-2', time: '21:30:00' });
+      const earlier = summary({ performanceId: 'perf-1', time: '14:00:00' });
+      (repository.listPerformanceSummariesByEvent as ReturnType<typeof vi.fn>).mockResolvedValueOnce([later, earlier]);
+      const catalog = new EventCatalog(repository);
+
+      await expect(catalog.listPerformanceSummariesByEvent('event-1')).resolves.toEqual([earlier, later]);
+      expect(repository.listPerformanceSummariesByEvent).toHaveBeenCalledWith('event-1', '2026-10-01');
+    });
+
+    it('throws EventNotFoundError for performance summaries of a missing event', async () => {
+      const repository = createMockRepository();
+      (repository.findEventById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+      (repository.listPerformanceSummariesByEvent as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+      const catalog = new EventCatalog(repository);
+
+      await expect(catalog.listPerformanceSummariesByEvent('missing-event')).rejects.toBeInstanceOf(EventNotFoundError);
+    });
   });
 });

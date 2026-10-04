@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
-import type { EventDto, PerformanceDto } from '@ticketing-system/shared';
+import type { EventSummaryDto, PerformanceSummaryDto } from '@ticketing-system/shared';
 import { EventNotFoundError } from '../../domain/common/errors/domain-errors.js';
-import type { Event, EventCatalog, Performance } from '../../domain/events/event-catalog.js';
+import type { EventCatalog, EventSummary, PerformanceSummary } from '../../domain/events/event-catalog.js';
 
 export interface EventsRoutesOptions {
   eventCatalog: EventCatalog;
@@ -15,19 +15,34 @@ interface ErrorResponse {
   error: string;
 }
 
-function toEventResponse(event: Event): EventDto {
-  return event;
+/**
+ * Explicit field-by-field mapping, for the same reason as
+ * `toPerformanceResponse` below: the wire shape is decided here, never by
+ * whatever the domain object happens to carry.
+ */
+function toEventResponse(event: EventSummary): EventSummaryDto {
+  return {
+    eventId: event.eventId,
+    title: event.title,
+    description: event.description,
+    imageUrl: event.imageUrl,
+    nextPerformance: event.nextPerformance,
+    upcomingPerformanceCount: event.upcomingPerformanceCount,
+    fromPriceCents: event.fromPriceCents,
+    heldSeats: event.heldSeats,
+  };
 }
 
 /**
  * Explicit field-by-field mapping, not an identity return — `Performance`
  * now carries a `status` field (see `event.repository.ts`) that
- * `PerformanceDto` deliberately does not: this route only ever returns
- * `scheduled` performances (the repository already filters that), but the
- * mapping strips `status` defensively so a cancelled performance's shape
- * can never reach this public route even if that filtering logic changes.
+ * `PerformanceSummaryDto` deliberately does not: this route only ever
+ * returns `scheduled` performances (the repository already filters that),
+ * but the mapping strips `status` defensively so a cancelled performance's
+ * shape can never reach this public route even if that filtering logic
+ * changes.
  */
-function toPerformanceResponse(performance: Performance): PerformanceDto {
+function toPerformanceResponse(performance: PerformanceSummary): PerformanceSummaryDto {
   return {
     performanceId: performance.performanceId,
     eventId: performance.eventId,
@@ -36,6 +51,9 @@ function toPerformanceResponse(performance: Performance): PerformanceDto {
     venue: performance.venue,
     city: performance.city,
     capacity: performance.capacity,
+    availableSeats: performance.availableSeats,
+    fromPriceCents: performance.fromPriceCents,
+    heldSeats: performance.heldSeats,
   };
 }
 
@@ -52,31 +70,35 @@ function isValidEventId(eventId: string): boolean {
  * Events/performances catalog routes: public, read-only browsing of what's
  * on sale. All business logic is delegated to the injected
  * {@link EventCatalog} — this plugin only maps domain results/errors to HTTP
- * responses.
+ * responses. Both routes serve the public read models (`EventSummary`,
+ * `PerformanceSummary`), not the plain `listEvents`/`listPerformancesByEvent`
+ * the admin assistant's read tools use.
  */
 export const eventsRoutes: FastifyPluginAsync<EventsRoutesOptions> = async (app, { eventCatalog }) => {
   /**
    * GET /events
    *
-   * Public. Lists every event.
+   * Public. Lists every event with its next upcoming performance, upcoming
+   * performance count, and cheapest available seat — ordered by next
+   * performance, events with nothing upcoming last.
    *
    * Responses: 200 with the event array.
    */
-  app.get<{ Reply: EventDto[] }>('/events', async (_request, reply) => {
-    const events = await eventCatalog.listEvents();
+  app.get<{ Reply: EventSummaryDto[] }>('/events', async (_request, reply) => {
+    const events = await eventCatalog.listEventSummaries();
     return reply.code(200).send(events.map(toEventResponse));
   });
 
   /**
    * GET /events/:eventId/performances
    *
-   * Public. Lists every performance scheduled for an event, sorted by
-   * date/time.
+   * Public. Lists an event's upcoming performances (past ones are never
+   * offered) with live availability, sorted by date/time.
    *
    * Responses: 200 with the performance array, 400 for an invalid eventId,
    * 404 if the event does not exist.
    */
-  app.get<{ Params: EventIdParams; Reply: PerformanceDto[] | ErrorResponse }>(
+  app.get<{ Params: EventIdParams; Reply: PerformanceSummaryDto[] | ErrorResponse }>(
     '/events/:eventId/performances',
     async (request, reply) => {
       const { eventId } = request.params;
@@ -85,7 +107,7 @@ export const eventsRoutes: FastifyPluginAsync<EventsRoutesOptions> = async (app,
       }
 
       try {
-        const performances = await eventCatalog.listPerformancesByEvent(eventId);
+        const performances = await eventCatalog.listPerformanceSummariesByEvent(eventId);
         return reply.code(200).send(performances.map(toPerformanceResponse));
       } catch (err) {
         if (err instanceof EventNotFoundError) {

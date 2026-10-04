@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { PerformanceSelector } from '../../components/Events';
 import type { Performance } from '../../components/Events';
-import { BackLink, PageHeader } from '../../components/ui';
+import { BackLink, LoadingState, PageHeader, Skeleton } from '../../components/ui';
 import { useEvents } from '../../hooks/useEvents';
 import { usePerformances } from '../../hooks/usePerformances';
 import styles from './PerformancesScreen.module.css';
@@ -26,7 +26,11 @@ export function PerformancesScreen() {
         />
       )}
       {isLoading ? (
-        <p className={styles.loading}>Loading performances…</p>
+        <LoadingState className={styles.skeletonList}>
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} height="5.5rem" radius="card" />
+          ))}
+        </LoadingState>
       ) : error ? (
         <p className={styles.error}>Failed to load performances: {(error as Error).message}</p>
       ) : (

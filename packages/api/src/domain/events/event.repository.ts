@@ -31,6 +31,38 @@ export interface Performance {
   status: PerformanceStatus;
 }
 
+/**
+ * Public read model for the events list: an event plus what a buyer decides
+ * on (when, where, from how much). Deliberately a separate shape from
+ * {@link Event} rather than extra fields on it: `AdminToolExecutor` sends
+ * `listEvents()` results to Claude on every assistant call, so growing that
+ * shape would cost tokens on every call for no benefit to the assistant.
+ */
+export interface EventSummary extends Event {
+  /** The earliest upcoming scheduled performance (by date, then time), or null if none. */
+  nextPerformance: { date: string; time: string; venue: string; city: string } | null;
+  upcomingPerformanceCount: number;
+  /** Cheapest *available* seat across upcoming performances, in cents; null if none is available. */
+  fromPriceCents: number | null;
+  /**
+   * Seats in someone's unpaid checkout hold (`reserved`) across upcoming
+   * performances. They aren't buyable now but come back when the 5-minute
+   * hold expires — so "nothing available" with held seats is "check back
+   * soon", not "sold out".
+   */
+  heldSeats: number;
+}
+
+/** Public read model for an event's schedule: a performance plus its live availability. */
+export interface PerformanceSummary extends Performance {
+  /** Seats with status `available` right now. */
+  availableSeats: number;
+  /** Cheapest available seat, in cents; null when none is available. */
+  fromPriceCents: number | null;
+  /** Seats in an unpaid checkout hold right now — see {@link EventSummary.heldSeats}. */
+  heldSeats: number;
+}
+
 /** Fields required to create a new event. */
 export interface NewEventInput {
   eventId: string;
@@ -84,6 +116,24 @@ export interface IEventRepository {
    * admin UI/reporting phase.
    */
   listAllPerformancesByEvent(eventId: string): Promise<Performance[]>;
+
+  /**
+   * Lists every event with its upcoming-schedule summary, for the public
+   * events list. "Upcoming" means `scheduled` with `date >= today` — `today`
+   * ('YYYY-MM-DD') is passed in rather than read inside SQL so tests can pin
+   * it. Ordered by next performance (date, then time), events with no
+   * upcoming performances last, ties by title — so the list (and the hero,
+   * which features its first entry) is deterministic.
+   */
+  listEventSummaries(today: string): Promise<EventSummary[]>;
+
+  /**
+   * Lists `eventId`'s upcoming `scheduled` performances (`date >= today`)
+   * with live availability, sorted by date then time. Does not itself
+   * verify that the event exists — same contract as
+   * {@link listPerformancesByEvent}.
+   */
+  listPerformanceSummariesByEvent(eventId: string, today: string): Promise<PerformanceSummary[]>;
 
   /** Reads a single performance, or null if it does not exist. */
   findPerformanceById(performanceId: string): Promise<Performance | null>;

@@ -1,7 +1,16 @@
 import { EventNotFoundError } from '../common/errors/domain-errors.js';
-import type { Event, IEventRepository, Performance } from './event.repository.js';
+import type { Event, EventSummary, IEventRepository, Performance, PerformanceSummary } from './event.repository.js';
 
-export type { Event, Performance } from './event.repository.js';
+export type { Event, EventSummary, Performance, PerformanceSummary } from './event.repository.js';
+
+/** Today's calendar date in UTC, as 'YYYY-MM-DD' — the cutoff for "upcoming". */
+function todayUtc(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function byDateThenTime(a: Performance, b: Performance): number {
+  return a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date);
+}
 
 /**
  * Read-only catalog of events and their scheduled performances. Unlike
@@ -39,5 +48,34 @@ export class EventCatalog {
     }
 
     return [...performances].sort((a, b) => (a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date)));
+  }
+
+  /**
+   * Lists every event with its upcoming-schedule summary (next date, from
+   * price), for the public events list. The admin assistant's read tools
+   * keep using {@link listEvents} — see `EventSummary`'s doc comment.
+   */
+  async listEventSummaries(): Promise<EventSummary[]> {
+    return this.repository.listEventSummaries(todayUtc());
+  }
+
+  /**
+   * Lists `eventId`'s upcoming performances with live availability, sorted
+   * by date/time, for the public schedule. Past performances are excluded.
+   *
+   * @throws {EventNotFoundError} if the event does not exist.
+   */
+  async listPerformanceSummariesByEvent(eventId: string): Promise<PerformanceSummary[]> {
+    // Concurrent for the same reason as listPerformancesByEvent above.
+    const [event, performances] = await Promise.all([
+      this.repository.findEventById(eventId),
+      this.repository.listPerformanceSummariesByEvent(eventId, todayUtc()),
+    ]);
+
+    if (!event) {
+      throw new EventNotFoundError(eventId);
+    }
+
+    return [...performances].sort(byDateThenTime);
   }
 }

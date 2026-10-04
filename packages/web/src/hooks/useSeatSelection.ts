@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Seat } from '../components/Seats/types';
 import { selectSeat, unlockSeat } from '../services/seatApi';
+import { clearGuestPicks, saveGuestPicks } from '../utils/guestPicks';
 import { useSeats } from './useSeats';
 
 interface UseSeatSelectionOptions {
@@ -22,6 +23,11 @@ interface UseSeatSelectionOptions {
  * client-side as a `Set<string>` of seat ids, separate from each seat's
  * server-reported `status` (which is true for anyone's active hold, not
  * just the current user's).
+ *
+ * Guest mode (`token` null): seats are picked and cleared locally only —
+ * nothing is reserved, since a hold belongs to a user — and remembered in
+ * `sessionStorage` (utils/guestPicks) so they survive logging in. The
+ * screen reserves them with `reserveSeats` once the guest signs in.
  */
 export function useSeatSelection({ performanceId, token }: UseSeatSelectionOptions) {
   const queryClient = useQueryClient();
@@ -126,20 +132,80 @@ export function useSeatSelection({ performanceId, token }: UseSeatSelectionOptio
 
   const onSeatSelect = useCallback(
     (seat: Seat) => {
+      if (!token) {
+        // Guest: pick locally only, and remember the picks across the login
+        // round trip (utils/guestPicks). Nothing is reserved until they sign
+        // in — a hold is keyed to a user (see the screen's reserveSeats flow).
+        const next = new Set(selectedSeatIds);
+        if (next.has(seat.id)) {
+          next.delete(seat.id);
+        } else if (seat.status === 'available') {
+          next.add(seat.id);
+        }
+        setSelectedSeatIds(next);
+        saveGuestPicks(performanceId, Array.from(next));
+        return;
+      }
       if (selectedSeatIds.has(seat.id)) {
         unlockMutation.mutate(seat.id);
       } else {
         selectMutation.mutate(seat.id);
       }
     },
-    [selectedSeatIds, selectMutation, unlockMutation]
+    [token, performanceId, selectedSeatIds, selectMutation, unlockMutation]
+  );
+
+  /** Puts a guest's remembered picks back into the selection (e.g. after a reload). Reserves nothing. */
+  const restoreGuestPicks = useCallback((seatIds: string[]) => {
+    setSelectedSeatIds(new Set(seatIds));
+  }, []);
+
+  // Logging out on this screen: the seats this user had reserved are theirs,
+  // not guest picks — drop them from the selection rather than let them
+  // masquerade as a guest's. (Their server holds simply expire.)
+  const previousToken = useRef(token);
+  useEffect(() => {
+    if (previousToken.current && !token) {
+      setSelectedSeatIds(new Set());
+    }
+    previousToken.current = token;
+  }, [token]);
+
+  /**
+   * Reserves several seats at once — for a guest's picks right after they
+   * log in. Runs concurrently through the same mutation as a single click
+   * (same optimistic update, per-seat rollback, and invalidation); a seat
+   * that loses the race (409 → `success: false`) or errors counts as taken.
+   */
+  const reserveSeats = useCallback(
+    async (seatIds: string[]): Promise<{ reserved: string[]; taken: string[] }> => {
+      const results = await Promise.all(
+        seatIds.map((seatId) =>
+          selectMutation.mutateAsync(seatId).then(
+            (result) => result.success,
+            () => false
+          )
+        )
+      );
+      return {
+        reserved: seatIds.filter((_, i) => results[i]),
+        taken: seatIds.filter((_, i) => !results[i]),
+      };
+    },
+    [selectMutation]
   );
 
   const totalPrice = seats.filter((seat) => selectedSeatIds.has(seat.id)).reduce((sum, seat) => sum + seat.price, 0);
 
   const clearSelection = useCallback(() => {
+    if (!token) {
+      // A guest's picks were never reserved, so there's nothing to unlock.
+      setSelectedSeatIds(new Set());
+      clearGuestPicks(performanceId);
+      return;
+    }
     selectedSeatIds.forEach((seatId) => unlockMutation.mutate(seatId));
-  }, [selectedSeatIds, unlockMutation]);
+  }, [token, performanceId, selectedSeatIds, unlockMutation]);
 
   return {
     seats,
@@ -151,6 +217,8 @@ export function useSeatSelection({ performanceId, token }: UseSeatSelectionOptio
     selectError: selectMutation.error,
     takenSeatId,
     onSeatSelect,
+    reserveSeats,
+    restoreGuestPicks,
     clearSelection,
   };
 }

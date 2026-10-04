@@ -1,13 +1,13 @@
-import type { EventDto, PerformanceDto } from '@ticketing-system/shared';
+import type { EventSummaryDto, PerformanceSummaryDto } from '@ticketing-system/shared';
 import type { Event, Performance } from '../components/Events/types';
 import { API_BASE, parseErrorMessage } from './http';
 
-function toEvent(dto: EventDto): Event {
+function toEvent(dto: EventSummaryDto): Event {
   const { eventId, ...rest } = dto;
   return { id: eventId, ...rest };
 }
 
-function toPerformance(dto: PerformanceDto): Performance {
+function toPerformance(dto: PerformanceSummaryDto): Performance {
   const { performanceId, ...rest } = dto;
   return { id: performanceId, ...rest };
 }
@@ -18,7 +18,7 @@ export async function listEvents(): Promise<Event[]> {
   if (!response.ok) {
     throw new Error(await parseErrorMessage(response, 'Failed to fetch events'));
   }
-  const data: EventDto[] = await response.json();
+  const data: EventSummaryDto[] = await response.json();
   return data.map(toEvent);
 }
 
@@ -28,6 +28,6 @@ export async function listPerformances(eventId: string): Promise<Performance[]> 
   if (!response.ok) {
     throw new Error(await parseErrorMessage(response, 'Failed to fetch performances'));
   }
-  const data: PerformanceDto[] = await response.json();
+  const data: PerformanceSummaryDto[] = await response.json();
   return data.map(toPerformance);
 }

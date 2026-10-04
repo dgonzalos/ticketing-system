@@ -89,11 +89,6 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.loading,
-.error {
-  color: var(--color-text-secondary);
-}
-
 .error {
   color: var(--color-danger-text);
 }

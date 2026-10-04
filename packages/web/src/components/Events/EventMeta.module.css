@@ -1,0 +1,12 @@
+.meta {
+  margin: 0;
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+  color: var(--color-text-primary);
+}
+
+.more {
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-secondary);
+}

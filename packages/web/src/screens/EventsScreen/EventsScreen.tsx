@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { EventSelector, EventsHero } from '../../components/Events';
 import type { Event } from '../../components/Events';
+import { LoadingState, Skeleton } from '../../components/ui';
 import { useEvents } from '../../hooks/useEvents';
 import styles from './EventsScreen.module.css';
 
@@ -14,7 +15,14 @@ export function EventsScreen() {
   return (
     <div className={styles.screen}>
       {isLoading ? (
-        <p className={styles.loading}>Loading events…</p>
+        <LoadingState>
+          <Skeleton height="17rem" radius="card" />
+          <div className={styles.skeletonGrid}>
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} height="20rem" radius="card" />
+            ))}
+          </div>
+        </LoadingState>
       ) : error ? (
         <p className={styles.error}>Failed to load events: {(error as Error).message}</p>
       ) : (

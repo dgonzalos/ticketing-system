@@ -41,6 +41,21 @@ export interface EventDto {
 }
 
 /**
+ * Wire shape of an event in the public `GET /events` list: the event plus
+ * what a buyer decides on. A separate shape from {@link EventDto}, which
+ * the admin event routes also return and which has no schedule to summarize.
+ */
+export interface EventSummaryDto extends EventDto {
+  /** The earliest upcoming performance, or null if none is scheduled. `time` is e.g. `'19:30:00'`. */
+  nextPerformance: { date: string; time: string; venue: string; city: string } | null;
+  upcomingPerformanceCount: number;
+  /** Cheapest available seat across upcoming performances, in cents; null if none is available. */
+  fromPriceCents: number | null;
+  /** Seats in an unpaid 5-minute checkout hold across upcoming performances — they may free up. */
+  heldSeats: number;
+}
+
+/**
  * Wire shape of a performance as returned by the API's
  * `GET /events/:eventId/performances`.
  */
@@ -54,6 +69,19 @@ export interface PerformanceDto {
   venue: string;
   city: string;
   capacity: number;
+}
+
+/**
+ * Wire shape of a performance in the public `GET /events/:eventId/performances`
+ * list (upcoming performances only), with live availability.
+ */
+export interface PerformanceSummaryDto extends PerformanceDto {
+  /** Seats with status `available` right now. */
+  availableSeats: number;
+  /** Cheapest available seat, in cents; null when none is available. */
+  fromPriceCents: number | null;
+  /** Seats in an unpaid 5-minute checkout hold right now — they may free up. */
+  heldSeats: number;
 }
 
 /** Request body for the API's `POST /admin/events`. */

@@ -13,9 +13,11 @@
   font-size: var(--font-size-4);
 }
 
-.loading,
-.error {
-  color: var(--color-text-secondary);
+/* Same track sizing as EventSelector's .grid, so the skeletons occupy the cards' exact footprint. */
+.skeletonGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17.5rem), 1fr));
+  gap: var(--space-6);
 }
 
 .error {

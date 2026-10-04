@@ -1,4 +1,5 @@
 import { Button } from '../ui';
+import { EventMeta } from './EventMeta';
 import type { Event } from './types';
 import styles from './EventsHero.module.css';
 
@@ -20,6 +21,7 @@ export function EventsHero({ event, onSelect }: EventsHeroProps) {
         <p className={styles.eyebrow}>Autumn season</p>
         <h2 className={styles.headline}>Your next night out starts here.</h2>
         <p className={styles.body}>Theatre, music, and nights you&rsquo;ll remember.</p>
+        <EventMeta event={event} withPrice />
         <Button onClick={() => onSelect(event)}>Discover {event.title} →</Button>
       </div>
       <div className={styles.poster} aria-hidden="true">

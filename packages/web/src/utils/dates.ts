@@ -43,3 +43,25 @@ export function formatPerformanceDateTime(date: string, time: string): string {
 export function formatShortDate(date: string): string {
   return shortDateFormatter.format(toLocalDate(date));
 }
+
+/**
+ * Formats a time of day ('HH:MM' or 'HH:MM:SS') as 24-hour "HH:MM", e.g.
+ * '19:30:00' → "19:30". Plain string slicing — the input is already
+ * 24-hour and zero-padded, so there's nothing for Intl to localize.
+ */
+export function formatTime(time: string): string {
+  return time.slice(0, 5);
+}
+
+const datePartsFormatter = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+
+/**
+ * Splits a calendar date into the parts a calendar-style date block shows,
+ * e.g. '2026-03-14' → { weekday: 'Sat', day: '14', month: 'Mar' }.
+ */
+export function formatDateParts(date: string): { weekday: string; day: string; month: string } {
+  const parts = Object.fromEntries(
+    datePartsFormatter.formatToParts(toLocalDate(date)).map((part) => [part.type, part.value])
+  );
+  return { weekday: parts.weekday, day: parts.day, month: parts.month };
+}

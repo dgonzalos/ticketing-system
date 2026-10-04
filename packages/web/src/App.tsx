@@ -30,8 +30,9 @@ const queryClient = new QueryClient({
  * between.
  *
  * Deliberately not wrapped in `ProtectedRoute`: guests may view the seat map
- * and prices. `SeatSelectionScreen` itself sends a guest to /login at the
- * moment they choose a seat (see its `handleSeatSelect`).
+ * and pick seats (kept in the browser only). `SeatSelectionScreen` itself
+ * sends a guest to /login when they click Checkout, carrying their picks so
+ * they can be reserved on return (see its `goToCheckout`).
  */
 function SeatSelectionRoute() {
   const { performanceId } = useParams<{ performanceId: string }>();
@@ -115,7 +116,7 @@ export default function App() {
                 <Route path="/events/:eventId" element={<PerformancesScreen />} />
                 <Route path="/login" element={<LoginScreen />} />
                 <Route path="/signup" element={<SignupScreen />} />
-                {/* Public route, but auth is required at the moment a seat is chosen — enforced inside SeatSelectionScreen. */}
+                {/* Public, including picking seats — auth starts at Checkout (SeatSelectionScreen redirects with the picks). */}
                 <Route path="/events/:eventId/performances/:performanceId" element={<SeatSelectionRoute />} />
 
                 {/* Protected — everything from checkout onward. */}

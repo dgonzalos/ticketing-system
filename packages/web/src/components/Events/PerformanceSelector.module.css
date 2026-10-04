@@ -1,12 +1,86 @@
-.dateTime {
-  margin: 0 0 var(--space-2) 0;
-  font-size: var(--font-size-3);
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+/* Calendar-style date block: MON / day / weekday. */
+.dateBlock {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: var(--radius-control);
+  background-color: var(--color-bg-subtle);
+  line-height: 1.1;
+}
+
+.month {
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.day {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-4);
+}
+
+.weekday {
+  font-size: var(--font-size-1);
+  color: var(--color-text-secondary);
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.when {
   font-weight: var(--font-weight-semibold);
 }
 
-.venue {
+.availability {
   margin: 0;
+  font-size: var(--font-size-2);
   color: var(--color-text-secondary);
+}
+
+.lowCount {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent-solid);
+}
+
+.cta {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent-solid);
+}
+
+/* 520px: no room for the hint next to the details on a phone. */
+@media (max-width: 32.5rem) {
+  .cta {
+    display: none;
+  }
+}
+
+.soldOut {
+  color: var(--color-text-disabled);
+}
+
+.soldOut .weekday,
+.soldOut .month,
+.soldOut .availability {
+  color: var(--color-text-disabled);
 }
 
 .empty {

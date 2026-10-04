@@ -6,9 +6,9 @@
   gap: var(--space-7);
 }
 
-.loading,
-.error {
-  color: var(--color-text-secondary);
+/* Same spacing as CardList's .list, so the skeleton rows sit where the real rows will. */
+.skeletonList {
+  gap: var(--space-4);
 }
 
 .error {

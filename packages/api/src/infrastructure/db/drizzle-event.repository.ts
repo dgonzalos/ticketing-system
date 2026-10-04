@@ -1,13 +1,15 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, sql, type SQL } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { PerformanceAlreadyScheduledError } from '../../domain/common/errors/domain-errors.js';
 import type {
   Event,
   EventChanges,
+  EventSummary,
   IEventRepository,
   NewEventInput,
   NewPerformanceInput,
   Performance,
+  PerformanceSummary,
 } from '../../domain/events/event.repository.js';
 import type { NewSeatInput } from '../../domain/seats/seat-map.js';
 import type { DbTransaction } from './seat-queries.js';
@@ -91,6 +93,91 @@ export class DrizzleEventRepository implements IEventRepository {
       .from(schema.performancesTable)
       .where(eq(schema.performancesTable.eventId, eventId));
     return rows.map(toPerformance);
+  }
+
+  async listEventSummaries(today: string): Promise<EventSummary[]> {
+    const p = schema.performancesTable;
+    const s = schema.seatsTable;
+    const e = schema.eventsTable;
+
+    // One row per upcoming scheduled performance: its cheapest available
+    // seat, plus its rank within its event by (date, time) so the outer
+    // query can pick the next one deterministically. Date/time are
+    // pre-formatted as text here — once they pass through an aggregate
+    // below, node-postgres would otherwise parse a `date` into a JS Date.
+    const upcoming = this.db.$with('upcoming').as(
+      this.db
+        .select({
+          eventId: sql<string>`${p.eventId}`.as('event_id'),
+          date: sql<string>`to_char(${p.date}, 'YYYY-MM-DD')`.as('perf_date'),
+          time: sql<string>`${p.time}::text`.as('perf_time'),
+          venue: sql<string>`${p.venue}`.as('perf_venue'),
+          city: sql<string>`${p.city}`.as('perf_city'),
+          fromPriceCents: sql<number | null>`min(${s.price}) filter (where ${s.status} = 'available')`.as('from_price_cents'),
+          heldSeats: sql<number>`count(${s.id}) filter (where ${s.status} = 'reserved')`.as('held_seats'),
+          rank: sql<number>`row_number() over (partition by ${p.eventId} order by ${p.date}, ${p.time})`.as('perf_rank'),
+        })
+        .from(p)
+        .leftJoin(s, eq(s.performanceId, p.id))
+        .where(and(eq(p.status, 'scheduled'), gte(p.date, today)))
+        .groupBy(p.id)
+    );
+
+    // Each event has at most one rank-1 row, so min(...) FILTER (rank = 1) just reads it out.
+    const nextField = (field: SQL.Aliased<string>) => sql<string | null>`min(${field}) filter (where ${upcoming.rank} = 1)`;
+
+    const rows = await this.db
+      .with(upcoming)
+      .select({
+        event: e,
+        upcomingPerformanceCount: sql<number>`count(${upcoming.eventId})`.mapWith(Number),
+        fromPriceCents: sql<number | null>`min(${upcoming.fromPriceCents})`,
+        heldSeats: sql<number>`coalesce(sum(${upcoming.heldSeats}), 0)`.mapWith(Number),
+        nextDate: nextField(upcoming.date),
+        nextTime: nextField(upcoming.time),
+        nextVenue: nextField(upcoming.venue),
+        nextCity: nextField(upcoming.city),
+      })
+      .from(e)
+      .leftJoin(upcoming, eq(upcoming.eventId, e.id))
+      .groupBy(e.id)
+      .orderBy(sql`${nextField(upcoming.date)} asc nulls last`, sql`${nextField(upcoming.time)} asc nulls last`, asc(e.title));
+
+    return rows.map((row) => ({
+      ...toEvent(row.event),
+      nextPerformance:
+        row.nextDate && row.nextTime && row.nextVenue && row.nextCity
+          ? { date: row.nextDate, time: row.nextTime, venue: row.nextVenue, city: row.nextCity }
+          : null,
+      upcomingPerformanceCount: row.upcomingPerformanceCount,
+      fromPriceCents: row.fromPriceCents,
+      heldSeats: row.heldSeats,
+    }));
+  }
+
+  async listPerformanceSummariesByEvent(eventId: string, today: string): Promise<PerformanceSummary[]> {
+    const p = schema.performancesTable;
+    const s = schema.seatsTable;
+
+    const rows = await this.db
+      .select({
+        performance: p,
+        availableSeats: sql<number>`count(${s.id}) filter (where ${s.status} = 'available')`.mapWith(Number),
+        fromPriceCents: sql<number | null>`min(${s.price}) filter (where ${s.status} = 'available')`,
+        heldSeats: sql<number>`count(${s.id}) filter (where ${s.status} = 'reserved')`.mapWith(Number),
+      })
+      .from(p)
+      .leftJoin(s, eq(s.performanceId, p.id))
+      .where(and(eq(p.eventId, eventId), eq(p.status, 'scheduled'), gte(p.date, today)))
+      .groupBy(p.id)
+      .orderBy(asc(p.date), asc(p.time));
+
+    return rows.map((row) => ({
+      ...toPerformance(row.performance),
+      availableSeats: row.availableSeats,
+      fromPriceCents: row.fromPriceCents,
+      heldSeats: row.heldSeats,
+    }));
   }
 
   async findPerformanceById(performanceId: string): Promise<Performance | null> {

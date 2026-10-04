@@ -12,6 +12,10 @@
   transition: border-color 0.15s ease;
 }
 
-.item:hover {
+.item:not(:disabled):hover {
   border-color: var(--color-border-strong);
+}
+
+.item:disabled {
+  cursor: not-allowed;
 }
