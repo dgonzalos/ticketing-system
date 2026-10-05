@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useOrder } from '../../hooks/useOrder';
 import { usePaymentStatus } from '../../hooks/usePaymentStatus';
 import { useSeats } from '../../hooks/useSeats';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import styles from './PaymentSuccessScreen.module.css';
 
 /**
@@ -17,6 +18,7 @@ import styles from './PaymentSuccessScreen.module.css';
  * this app's actual source of truth for payment completion.
  */
 export function PaymentSuccessScreen() {
+  useDocumentTitle('Payment confirmed');
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const { token } = useAuth();

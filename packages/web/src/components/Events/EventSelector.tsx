@@ -1,12 +1,15 @@
+import type { CSSProperties } from 'react';
 import clsx from 'clsx';
 import { formatCents } from '../../utils/currency';
 import { Card } from '../ui';
 import { EventMeta } from './EventMeta';
+import { EventPoster } from './EventPoster';
 import type { Event, EventSelectorProps } from './types';
 import cardListStyles from './CardList.module.css';
 import styles from './EventSelector.module.css';
 
-const POSTER_CLASSES = [styles.poster1, styles.poster2, styles.poster3];
+/** Cards past this index enter together, so a long list never waits on its own stagger. */
+const MAX_STAGGER = 6;
 
 /** Footer price line: "From 50,00 €", "Sold out", or nothing when no dates are scheduled. */
 function EventPrice({ event }: { event: Event }) {
@@ -48,10 +51,9 @@ export function EventSelector({ events, onSelect }: EventSelectorProps) {
           as="button"
           className={clsx(cardListStyles.item, styles.card)}
           onClick={() => onSelect(event)}
+          style={{ '--i': Math.min(index, MAX_STAGGER) } as CSSProperties}
         >
-          <div className={clsx(styles.poster, POSTER_CLASSES[index % 3])} aria-hidden="true">
-            {event.title.charAt(0)}
-          </div>
+          <EventPoster event={event} size="card" />
           <div className={styles.body}>
             <h3 className={styles.title}>{event.title}</h3>
             <EventMeta event={event} />

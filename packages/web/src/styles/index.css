@@ -5,4 +5,5 @@
 @import './primitives/typography.css';
 @import './primitives/radius.css';
 @import './primitives/sizes.css';
+@import './primitives/motion.css';
 @import './semantic.css';

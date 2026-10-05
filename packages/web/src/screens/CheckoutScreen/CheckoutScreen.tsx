@@ -8,6 +8,7 @@ import { useCheckout } from '../../hooks/useCheckout';
 import { usePerformances } from '../../hooks/usePerformances';
 import { useSeats } from '../../hooks/useSeats';
 import { isValidEmail } from '../../utils/validation';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import styles from './CheckoutScreen.module.css';
 
 /**
@@ -44,6 +45,7 @@ function isCheckoutLocationState(state: unknown): state is CheckoutLocationState
  * has nothing to check out against and is redirected back to `/`.
  */
 export function CheckoutScreen() {
+  useDocumentTitle('Checkout');
   const location = useLocation();
   const navigate = useNavigate();
   const state = isCheckoutLocationState(location.state) ? location.state : null;

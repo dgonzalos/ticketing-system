@@ -9,7 +9,12 @@
   overflow: hidden;
   display: grid;
   grid-template-rows: auto 1fr;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition:
+    border-color var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-out);
+  /* Fade up on arrival, staggered by the inline --i (card index, capped) set in EventSelector. */
+  animation: var(--animation-enter);
+  animation-delay: calc(var(--i, 0) * var(--stagger-step));
 }
 
 .grid .card:hover {
@@ -21,44 +26,6 @@
   .grid .card:hover {
     transform: none;
   }
-}
-
-.poster {
-  position: relative;
-  min-height: 9.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-family-display);
-  font-style: italic;
-  font-size: 3.4rem;
-}
-
-.poster::after {
-  content: '';
-  position: absolute;
-  top: 1.25rem;
-  right: -1.5625rem;
-  width: 10rem;
-  height: 10rem;
-  border-radius: 50%;
-  border: 1px solid currentColor;
-  opacity: 0.44;
-}
-
-.poster1 {
-  background-color: var(--color-poster-1);
-  color: var(--color-poster-text);
-}
-
-.poster2 {
-  background-color: var(--color-poster-2);
-  color: var(--color-poster-text);
-}
-
-.poster3 {
-  background-color: var(--color-poster-3);
-  color: var(--color-poster-text);
 }
 
 .body {

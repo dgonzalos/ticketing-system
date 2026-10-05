@@ -1,4 +1,6 @@
-# Ticketing System
+# Seatly
+
+*The codebase is `ticketing-system`; Seatly is the name visitors see.*
 
 A full-stack ticketing platform — browse events, pick a performance, select seats on a live seat map, and pay through Stripe. Built to explore the parts of this problem that are actually hard: **selling the same seat twice, and trusting a payment that happens on someone else's server.**
 

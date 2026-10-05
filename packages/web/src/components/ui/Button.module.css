@@ -9,7 +9,9 @@
   font-family: inherit;
   text-decoration: none; /* ButtonLink renders an <a> with these same classes */
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background-color var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out);
 }
 
 .button:disabled {

@@ -9,7 +9,7 @@
   width: 100%;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s ease;
+  transition: border-color var(--duration-base) var(--ease-out);
 }
 
 .item:not(:disabled):hover {

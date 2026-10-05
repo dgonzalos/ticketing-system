@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useInitiatePayment } from '../../hooks/useInitiatePayment';
 import { useOrder } from '../../hooks/useOrder';
 import { useSeats } from '../../hooks/useSeats';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import styles from './OrderConfirmationScreen.module.css';
 
 /**
@@ -17,6 +18,7 @@ import styles from './OrderConfirmationScreen.module.css';
  * read as "confirmed".
  */
 export function OrderConfirmationScreen() {
+  useDocumentTitle('Order summary');
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const { token } = useAuth();

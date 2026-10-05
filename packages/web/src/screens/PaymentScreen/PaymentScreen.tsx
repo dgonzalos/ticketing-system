@@ -4,6 +4,7 @@ import { BackLink, Button } from '../../components/ui';
 import { useAuth } from '../../hooks/useAuth';
 import { usePaymentStatus } from '../../hooks/usePaymentStatus';
 import { formatCents } from '../../utils/currency';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import styles from './PaymentScreen.module.css';
 
 /** ~60s of polling (`usePaymentStatus` polls every 2s) before giving up and offering a manual check instead. */
@@ -17,6 +18,7 @@ const MAX_POLL_ATTEMPTS = 30;
  * then moves on.
  */
 export function PaymentScreen() {
+  useDocumentTitle('Payment');
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const { token } = useAuth();

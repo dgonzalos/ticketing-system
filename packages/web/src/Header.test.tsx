@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
@@ -27,6 +27,13 @@ function renderHeaderAt(pathname: string) {
 }
 
 describe('Header', () => {
+  it('shows the Seatly wordmark as the page heading, linking home', () => {
+    renderHeaderAt('/events/event-1');
+
+    const heading = screen.getByRole('heading', { level: 1, name: 'Seatly' });
+    expect(within(heading).getByRole('link', { name: 'Seatly' })).toHaveAttribute('href', '/');
+  });
+
   it('shows guests a Log in link that returns them to the current page', async () => {
     renderHeaderAt('/events/event-1/performances/perf-1');
 

@@ -4,6 +4,7 @@ import { Button, Card, Input } from '../../components/ui';
 import { useAuth } from '../../hooks/useAuth';
 import { useAuthRedirect } from '../../hooks/useAuthRedirect';
 import { isValidEmail } from '../../utils/validation';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import styles from './SignupScreen.module.css';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -16,6 +17,7 @@ const MIN_PASSWORD_LENGTH = 8;
  * detour through `/login` too, not just a signup submitted directly here.
  */
 export function SignupScreen() {
+  useDocumentTitle('Sign up');
   const { signup } = useAuth();
   const redirectAfterAuth = useAuthRedirect();
   const location = useLocation();

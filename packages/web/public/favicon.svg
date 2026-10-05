@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!--
+    Seatly favicon: a theatre seat (the seat map's own shape, rounded on top)
+    with the posters' outline circle. Raw hex on purpose: a favicon can't read
+    the app's CSS variables, and check:no-raw-colors only scans src/**/*.css.
+    Colours are Theme 1 (walnut): --walnut-poster-1 and --walnut-poster-text.
+  -->
+  <rect width="32" height="32" rx="7" fill="#594334"/>
+  <circle cx="25" cy="8" r="9" fill="none" stroke="#f6ebdb" stroke-opacity="0.44"/>
+  <path d="M9 24V14a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v10z" fill="#f6ebdb"/>
+  <rect x="7" y="20" width="18" height="4" rx="1.5" fill="#f6ebdb"/>
+</svg>

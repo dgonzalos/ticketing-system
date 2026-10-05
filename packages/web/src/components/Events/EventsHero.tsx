@@ -1,5 +1,6 @@
 import { Button } from '../ui';
 import { EventMeta } from './EventMeta';
+import { EventPoster } from './EventPoster';
 import type { Event } from './types';
 import styles from './EventsHero.module.css';
 
@@ -24,9 +25,7 @@ export function EventsHero({ event, onSelect }: EventsHeroProps) {
         <EventMeta event={event} withPrice />
         <Button onClick={() => onSelect(event)}>Discover {event.title} →</Button>
       </div>
-      <div className={styles.poster} aria-hidden="true">
-        <span className={styles.posterLetter}>{event.title.charAt(0)}</span>
-      </div>
+      <EventPoster event={event} size="hero" />
     </section>
   );
 }

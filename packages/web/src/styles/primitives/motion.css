@@ -1,0 +1,68 @@
+/*
+ * Motion scale: durations and easing curves for every transition and
+ * animation in the app, so motion feels like one system instead of a
+ * different 0.1s/0.15s per component. --ease-out is the design
+ * prototype's curve.
+ *
+ * Components use the --animation-* tokens (`animation: var(--animation-enter)`),
+ * never the keyframe names directly: CSS Modules renames any animation name
+ * written in a .module.css file to a per-file one (`_enter-rise_1vocp_1`),
+ * which would no longer match these global keyframes, but leaves a var()
+ * value alone.
+ */
+:root {
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 320ms;
+  --stagger-step: 40ms;
+
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+
+  /*
+   * `backwards`, not `both`: hold the first frame during a stagger delay, but
+   * release the element once the animation ends. A forwards fill would keep
+   * `transform: none` applied over every later rule (an animated value beats
+   * normal declarations), killing e.g. a card's hover lift.
+   */
+  --animation-enter: enter-rise var(--duration-slow) var(--ease-out) backwards;
+  --animation-pop: pop var(--duration-base) var(--ease-out);
+}
+
+/* Screens and cards arriving: a fade with a small rise. */
+@keyframes enter-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A seat being picked: a short scale bump. */
+@keyframes pop {
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+/*
+ * One switch for reduced motion, rather than an override in every module:
+ * animations and transitions finish instantly, so end states (opacity 1,
+ * colours) still apply. Components only need their own rule when reduced
+ * motion should also change what's drawn (e.g. Skeleton drops its shimmer
+ * gradient, a card skips its hover lift).
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+}

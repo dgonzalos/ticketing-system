@@ -29,11 +29,37 @@
   padding: var(--space-5) var(--space-8);
 }
 
-.headerInner h1 {
+.brand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+  min-width: 0;
+}
+
+/* The prototype's wordmark: display serif, widely tracked. */
+.wordmark {
   margin: 0;
   font-family: var(--font-family-display);
   font-weight: var(--font-weight-regular);
   font-size: var(--font-size-4);
+  letter-spacing: 0.08em;
+}
+
+.wordmark a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.wordmark a:focus-visible {
+  outline: none;
+  border-radius: var(--radius-control);
+  box-shadow: 0 0 0 2px var(--color-focus-ring);
+}
+
+.tagline {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2);
 }
 
 .userMenu {
@@ -67,6 +93,21 @@
   padding: var(--space-9) var(--space-8);
 }
 
+/*
+ * RouteFade's wrapper, re-created on every navigation to replay the enter
+ * animation. It mirrors .main's own grid (one full-height cell, items at the
+ * start) so each screen's justify-self/align-self — e.g. Login's vertical
+ * centring — behaves exactly as if it were still a direct child of .main.
+ */
+.routeFade {
+  align-self: stretch;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 1fr;
+  align-items: start;
+  animation: var(--animation-enter);
+}
+
 /* 820px: split layouts stack (see SeatSelectionScreen/CheckoutScreen .layout) */
 @media (max-width: 51.25rem) {
   .headerInner {
@@ -92,7 +133,8 @@
     padding-inline: var(--space-5);
   }
 
-  .userEmail {
+  .userEmail,
+  .tagline {
     display: none;
   }
 }

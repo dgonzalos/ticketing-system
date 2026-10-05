@@ -13,7 +13,9 @@
   font-family: var(--font-family-mono);
   font-size: var(--font-size-2);
   cursor: pointer;
-  transition: transform 0.1s ease, background-color 0.15s ease;
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    background-color var(--duration-base) var(--ease-out);
 }
 
 .seat:disabled {
@@ -68,6 +70,7 @@
   background-color: var(--color-seat-selected-bg);
   color: var(--color-seat-selected-text);
   border-color: var(--color-seat-selected-border);
+  animation: var(--animation-pop); /* a short bump as the seat is picked */
 }
 
 @media (max-width: 32.5rem) {

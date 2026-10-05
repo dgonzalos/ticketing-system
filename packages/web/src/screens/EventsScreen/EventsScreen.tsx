@@ -3,10 +3,12 @@ import { EventSelector, EventsHero } from '../../components/Events';
 import type { Event } from '../../components/Events';
 import { LoadingState, Skeleton } from '../../components/ui';
 import { useEvents } from '../../hooks/useEvents';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import styles from './EventsScreen.module.css';
 
 /** Route container for `/`: fetches events and navigates to `/events/:eventId` on selection. */
 export function EventsScreen() {
+  useDocumentTitle();
   const navigate = useNavigate();
   const { data: events = [], isLoading, error } = useEvents();
 

@@ -4,6 +4,7 @@ import type { Performance } from '../../components/Events';
 import { BackLink, LoadingState, PageHeader, Skeleton } from '../../components/ui';
 import { useEvents } from '../../hooks/useEvents';
 import { usePerformances } from '../../hooks/usePerformances';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import styles from './PerformancesScreen.module.css';
 
 /** Route container for `/events/:eventId`: fetches that event's performances and navigates to the seat map on selection. */
@@ -14,6 +15,7 @@ export function PerformancesScreen() {
   const { data: performances = [], isLoading, error } = usePerformances(eventId);
 
   const event = events.find((e) => e.id === eventId);
+  useDocumentTitle(event?.title);
   const handleSelect = (performance: Performance) => navigate(`/events/${eventId}/performances/${performance.id}`);
 
   return (

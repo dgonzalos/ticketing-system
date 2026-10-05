@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useRespondToPendingAction } from '../../hooks/useRespondToPendingAction';
 import { useSendAssistantMessage } from '../../hooks/useSendAssistantMessage';
 import { ApiError } from '../../services/http';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import styles from './AdminAssistantScreen.module.css';
 
 interface ChatMessage {
@@ -18,6 +19,7 @@ interface ChatMessage {
  * own documented scope limit on the backend, not a bug to fix here.
  */
 export function AdminAssistantScreen() {
+  useDocumentTitle('AI Admin Assistant');
   const { token } = useAuth();
   const sendMessage = useSendAssistantMessage({ token });
   const respond = useRespondToPendingAction({ token });

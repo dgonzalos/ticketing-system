@@ -8,6 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useSeatSelection } from '../../hooks/useSeatSelection';
 import { formatCents } from '../../utils/currency';
 import { clearGuestPicks, loadGuestPicks } from '../../utils/guestPicks';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import styles from './SeatSelectionScreen.module.css';
 
 interface PendingSeatsState {
@@ -38,6 +39,7 @@ function joinLabels(labels: string[]): string {
  * (header, Back) still reserves the remembered picks, but stays on the map.
  */
 export function SeatSelectionScreen() {
+  useDocumentTitle('Choose seats');
   const { eventId, performanceId } = useParams<{ eventId: string; performanceId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
