@@ -23,6 +23,32 @@ export interface Order {
   stripeSessionId?: string | null;
 }
 
+/**
+ * One order as listed on a buyer's "My tickets" page: just enough to
+ * recognise the order (what, when, where, which seats) without a second
+ * request per order. A read model, separate from {@link Order} — the same
+ * split as the public catalog's `EventSummary` vs `Event`.
+ */
+export interface OrderSummary {
+  orderId: string;
+  status: OrderStatus;
+  /** Total charged, in cents. */
+  totalAmount: number;
+  createdAt: Date;
+  /** Seat labels such as `A1`, sorted by row then number. Empty only if an order somehow has no items. */
+  seatLabels: string[];
+  event: { eventId: string; title: string };
+  performance: {
+    performanceId: string;
+    /** 'YYYY-MM-DD' */
+    date: string;
+    /** 'HH:MM:SS' */
+    time: string;
+    venue: string;
+    city: string;
+  };
+}
+
 /** Input required to place an order. */
 export interface CreateOrderInput {
   userId: string;
@@ -62,6 +88,14 @@ export interface IOrderRepository {
 
   /** Reads a single order (with its items), or null if it does not exist. */
   findOrderById(orderId: string): Promise<Order | null>;
+
+  /**
+   * Lists `userId`'s orders as {@link OrderSummary} rows, newest first, in
+   * every status (an expired, `cancelled` attempt is still listed). Capped
+   * at the 50 most recent: a demo buyer never gets near that, and an
+   * unbounded list is the wrong default for a user-facing read.
+   */
+  listOrderSummariesByUser(userId: string): Promise<OrderSummary[]>;
 
   /**
    * Atomically transitions an order from `fromStatus` to `toStatus`,

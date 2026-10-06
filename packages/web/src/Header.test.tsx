@@ -1,12 +1,26 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import type { UserDto } from '@ticketing-system/shared';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Header } from './App';
 
+/** Signed out unless a test sets it. */
+let mockUser: UserDto | null = null;
+
 vi.mock('./hooks/useAuth', () => ({
-  useAuth: () => ({ user: null, token: null, isAuthenticated: false, isLoading: false, logout: vi.fn() }),
+  useAuth: () => ({
+    user: mockUser,
+    token: mockUser ? 'token' : null,
+    isAuthenticated: mockUser !== null,
+    isLoading: false,
+    logout: vi.fn(),
+  }),
 }));
+
+afterEach(() => {
+  mockUser = null;
+});
 
 /** Stand-in for /login that exposes the location state it was navigated with. */
 function LoginProbe() {
@@ -41,6 +55,19 @@ describe('Header', () => {
 
     const state = JSON.parse(screen.getByTestId('login-state').textContent ?? 'null');
     expect(state.from.pathname).toBe('/events/event-1/performances/perf-1');
+  });
+
+  it('shows a My tickets link only when signed in', () => {
+    renderHeaderAt('/');
+    expect(screen.queryByRole('link', { name: 'My tickets' })).not.toBeInTheDocument();
+  });
+
+  it('links signed-in users to their tickets', () => {
+    mockUser = { id: 'user-1', email: 'buyer@example.com', name: null, createdAt: '2026-01-01T00:00:00.000Z', role: 'customer' };
+    renderHeaderAt('/');
+
+    expect(screen.getByRole('link', { name: 'My tickets' })).toHaveAttribute('href', '/tickets');
+    expect(screen.queryByRole('link', { name: 'Assistant' })).not.toBeInTheDocument();
   });
 
   it.each(['/login', '/signup'])('hides the Log in link on %s, which has its own form', (pathname) => {

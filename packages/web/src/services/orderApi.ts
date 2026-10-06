@@ -1,6 +1,7 @@
 import type {
   CreateOrderRequestDto,
   OrderDto,
+  OrderSummaryDto,
   PaymentSessionResponseDto,
   PaymentStatusResponseDto,
 } from '@ticketing-system/shared';
@@ -15,6 +16,17 @@ export async function createOrder(input: CreateOrderRequestDto, token: string): 
   });
   if (!response.ok) {
     throw new Error(await parseErrorMessage(response, 'Failed to place order'));
+  }
+  return response.json();
+}
+
+/** Lists the signed-in user's own orders, newest first, for the My tickets screen. */
+export async function listMyOrders(token: string): Promise<OrderSummaryDto[]> {
+  const response = await fetch(`${API_BASE}/orders`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response, 'Failed to fetch your orders'));
   }
   return response.json();
 }

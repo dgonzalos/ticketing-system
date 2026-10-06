@@ -21,6 +21,7 @@ function createMockOrderRepository(): IOrderRepository {
   return {
     createOrder: vi.fn(),
     findOrderById: vi.fn(),
+    listOrderSummariesByUser: vi.fn(),
     updateOrderStatus: vi.fn(),
     recordStripeSessionAndAdvance: vi.fn(),
     releaseSeatsForOrder: vi.fn(),

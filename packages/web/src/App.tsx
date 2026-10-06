@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { BrowserRouter, Link, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ThemeSwitcher } from './components/ThemeSwitcher';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Button, ButtonLink } from './components/ui';
@@ -11,6 +12,8 @@ import { AdminAssistantScreen } from './screens/AdminAssistantScreen';
 import { CheckoutScreen } from './screens/CheckoutScreen';
 import { EventsScreen } from './screens/EventsScreen';
 import { LoginScreen } from './screens/LoginScreen';
+import { MyTicketsScreen } from './screens/MyTicketsScreen';
+import { NotFoundScreen } from './screens/NotFoundScreen';
 import { OrderConfirmationScreen } from './screens/OrderConfirmationScreen';
 import { PaymentScreen } from './screens/PaymentScreen';
 import { PaymentSuccessScreen } from './screens/PaymentSuccessScreen';
@@ -60,8 +63,9 @@ const AUTH_PATHS = ['/login', '/signup'];
 
 /**
  * App header: the Seatly wordmark (a link home), theme switcher (always
- * shown), plus a "Log in" link for guests, or the signed-in user's email and
- * a logout button. The "Log in" link carries `{ from: location }` (the same
+ * shown), plus a "Log in" link for guests, or — signed in — "My tickets"
+ * (and "Assistant" for admins), the user's email, and a logout button. The
+ * "Log in" link carries `{ from: location }` (the same
  * shape `ProtectedRoute` uses) so logging in returns to the current page
  * rather than `/`.
  */
@@ -87,8 +91,11 @@ export function Header() {
           )}
           {user && (
             <>
+              <Link to="/tickets" className={styles.navLink}>
+                My tickets
+              </Link>
               {user.role === 'admin' && (
-                <Link to="/admin/assistant" className={styles.adminLink}>
+                <Link to="/admin/assistant" className={styles.navLink}>
                   Assistant
                 </Link>
               )}
@@ -133,30 +140,36 @@ export default function App() {
             <Header />
             <main className={styles.main}>
               <RouteFade>
-                <Routes>
-                  {/* Public — browsing events, performances, and a performance's seat map doesn't require an account. */}
-                  <Route path="/" element={<EventsScreen />} />
-                  <Route path="/events/:eventId" element={<PerformancesScreen />} />
-                  <Route path="/login" element={<LoginScreen />} />
-                  <Route path="/signup" element={<SignupScreen />} />
-                  {/* Public, including picking seats — auth starts at Checkout (SeatSelectionScreen redirects with the picks). */}
-                  <Route path="/events/:eventId/performances/:performanceId" element={<SeatSelectionRoute />} />
+                {/* Inside RouteFade, which remounts per pathname — so navigating away resets a crashed screen. */}
+                <ErrorBoundary>
+                  <Routes>
+                    {/* Public — browsing events, performances, and a performance's seat map doesn't require an account. */}
+                    <Route path="/" element={<EventsScreen />} />
+                    <Route path="/events/:eventId" element={<PerformancesScreen />} />
+                    <Route path="/login" element={<LoginScreen />} />
+                    <Route path="/signup" element={<SignupScreen />} />
+                    {/* Public, including picking seats — auth starts at Checkout (SeatSelectionScreen redirects with the picks). */}
+                    <Route path="/events/:eventId/performances/:performanceId" element={<SeatSelectionRoute />} />
 
-                  {/* Protected — everything from checkout onward. */}
-                  <Route path="/checkout" element={<ProtectedRoute element={<CheckoutScreen />} />} />
-                  <Route path="/order/:orderId" element={<ProtectedRoute element={<OrderConfirmationScreen />} />} />
-                  <Route path="/order/:orderId/payment" element={<ProtectedRoute element={<PaymentScreen />} />} />
-                  <Route
-                    path="/order/:orderId/payment-success"
-                    element={<ProtectedRoute element={<PaymentSuccessScreen />} />}
-                  />
+                    {/* Protected — everything from checkout onward, plus the user's own orders. */}
+                    <Route path="/checkout" element={<ProtectedRoute element={<CheckoutScreen />} />} />
+                    <Route path="/order/:orderId" element={<ProtectedRoute element={<OrderConfirmationScreen />} />} />
+                    <Route path="/order/:orderId/payment" element={<ProtectedRoute element={<PaymentScreen />} />} />
+                    <Route
+                      path="/order/:orderId/payment-success"
+                      element={<ProtectedRoute element={<PaymentSuccessScreen />} />}
+                    />
+                    <Route path="/tickets" element={<ProtectedRoute element={<MyTicketsScreen />} />} />
 
-                  {/* Admin-only */}
-                  <Route
-                    path="/admin/assistant"
-                    element={<ProtectedRoute element={<AdminAssistantScreen />} adminOnly />}
-                  />
-                </Routes>
+                    {/* Admin-only */}
+                    <Route
+                      path="/admin/assistant"
+                      element={<ProtectedRoute element={<AdminAssistantScreen />} adminOnly />}
+                    />
+
+                    <Route path="*" element={<NotFoundScreen />} />
+                  </Routes>
+                </ErrorBoundary>
               </RouteFade>
             </main>
           </div>

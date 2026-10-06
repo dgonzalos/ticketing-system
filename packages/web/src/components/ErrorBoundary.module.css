@@ -1,0 +1,14 @@
+.screen {
+  width: 100%;
+  justify-self: center;
+  max-width: var(--size-content-list);
+  display: grid;
+  gap: var(--space-6);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+}

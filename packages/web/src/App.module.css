@@ -74,12 +74,12 @@
   color: var(--color-text-secondary);
 }
 
-.adminLink {
+.navLink {
   color: var(--color-text-secondary);
   text-decoration: none;
 }
 
-.adminLink:hover {
+.navLink:hover {
   color: var(--color-accent-solid-hover);
 }
 

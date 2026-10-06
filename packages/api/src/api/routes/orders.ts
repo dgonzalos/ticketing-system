@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z, ZodError } from 'zod';
-import type { CreateOrderRequestDto, OrderDto } from '@ticketing-system/shared';
+import type { CreateOrderRequestDto, OrderDto, OrderSummaryDto } from '@ticketing-system/shared';
 import {
   OrderPriceMismatchError,
   OrderSeatConflictError,
@@ -8,7 +8,7 @@ import {
   OrderSeatOwnershipError,
   PerformanceNotFoundError,
 } from '../../domain/common/errors/domain-errors.js';
-import type { Order, OrderService } from '../../domain/orders/order-service.js';
+import type { Order, OrderService, OrderSummary } from '../../domain/orders/order-service.js';
 
 export interface OrdersRoutesOptions {
   orderService: OrderService;
@@ -32,6 +32,25 @@ function toOrderResponse(order: Order): OrderDto {
     totalAmount: order.totalAmount,
     items: order.items,
     createdAt: order.createdAt.toISOString(),
+  };
+}
+
+/** Explicit field-by-field mapping, like `toOrderResponse`: the wire shape is decided here. */
+function toOrderSummaryResponse(summary: OrderSummary): OrderSummaryDto {
+  return {
+    id: summary.orderId,
+    status: summary.status,
+    totalAmount: summary.totalAmount,
+    createdAt: summary.createdAt.toISOString(),
+    seatLabels: summary.seatLabels,
+    event: { eventId: summary.event.eventId, title: summary.event.title },
+    performance: {
+      performanceId: summary.performance.performanceId,
+      date: summary.performance.date,
+      time: summary.performance.time,
+      venue: summary.performance.venue,
+      city: summary.performance.city,
+    },
   };
 }
 
@@ -122,6 +141,22 @@ export const ordersRoutes: FastifyPluginAsync<OrdersRoutesOptions> = async (app,
       }
     }
   );
+
+  /**
+   * GET /orders
+   *
+   * Lists the authenticated user's own orders, newest first, for the
+   * "My tickets" page. The user is always the JWT's — there is deliberately
+   * no userId parameter, so no caller can list someone else's orders.
+   *
+   * Auth: required (Bearer JWT, verified by `app.authenticate`).
+   * Responses: 200 with the order summaries (an empty array if none), 401
+   * if unauthenticated.
+   */
+  app.get<{ Reply: OrderSummaryDto[] }>('/orders', { onRequest: [app.authenticate] }, async (request, reply) => {
+    const summaries = await orderService.listOrdersForUser(request.user.userId);
+    return reply.code(200).send(summaries.map(toOrderSummaryResponse));
+  });
 
   /**
    * GET /orders/:orderId

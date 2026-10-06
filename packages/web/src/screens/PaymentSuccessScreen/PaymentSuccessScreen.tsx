@@ -2,12 +2,13 @@ import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PriceSummary, SeatsSummaryList } from '../../components/Orders';
 import type { OrderSeatSummary } from '../../components/Orders';
-import { Button, Card } from '../../components/ui';
+import { Badge, Button, ButtonLink, Card } from '../../components/ui';
 import { useAuth } from '../../hooks/useAuth';
 import { useOrder } from '../../hooks/useOrder';
 import { usePaymentStatus } from '../../hooks/usePaymentStatus';
 import { useSeats } from '../../hooks/useSeats';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { ORDER_STATUS } from '../../utils/orderStatus';
 import styles from './PaymentSuccessScreen.module.css';
 
 /**
@@ -70,13 +71,18 @@ export function PaymentSuccessScreen() {
         <p className={styles.meta}>
           Order ID: <span className={styles.orderId}>{order.id}</span>
         </p>
-        <p className={styles.meta}>Status: {order.status}</p>
+        <p className={styles.meta}>
+          Status: <Badge tone={ORDER_STATUS[order.status].tone}>{ORDER_STATUS[order.status].label}</Badge>
+        </p>
         <p className={styles.meta}>Email: {order.email}</p>
         <SeatsSummaryList seats={seatSummaries} />
         <PriceSummary subtotal={subtotal} tax={tax} total={order.totalAmount} />
         <Button fullWidth onClick={() => navigate('/')}>
           Back to Events
         </Button>
+        <ButtonLink to="/tickets" variant="secondary" fullWidth>
+          View my tickets
+        </ButtonLink>
       </Card>
     </div>
   );

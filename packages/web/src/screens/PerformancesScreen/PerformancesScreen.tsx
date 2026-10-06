@@ -5,18 +5,26 @@ import { BackLink, LoadingState, PageHeader, Skeleton } from '../../components/u
 import { useEvents } from '../../hooks/useEvents';
 import { usePerformances } from '../../hooks/usePerformances';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { NotFoundScreen } from '../NotFoundScreen';
 import styles from './PerformancesScreen.module.css';
 
 /** Route container for `/events/:eventId`: fetches that event's performances and navigates to the seat map on selection. */
 export function PerformancesScreen() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { data: events = [] } = useEvents();
+  const { data: events = [], isSuccess: eventsLoaded } = useEvents();
   const { data: performances = [], isLoading, error } = usePerformances(eventId);
 
   const event = events.find((e) => e.id === eventId);
-  useDocumentTitle(event?.title);
+  // An unknown event id (most often an old link after a re-seed) is a missing page, not a failed request.
+  const notFound = eventsLoaded && !event;
+  // Set here for the 404 case too: this effect runs after NotFoundScreen's own, so it would otherwise overwrite it.
+  useDocumentTitle(notFound ? 'Page not found' : event?.title);
   const handleSelect = (performance: Performance) => navigate(`/events/${eventId}/performances/${performance.id}`);
+
+  if (notFound) {
+    return <NotFoundScreen />;
+  }
 
   return (
     <div className={styles.screen}>

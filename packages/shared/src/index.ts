@@ -145,6 +145,24 @@ export interface OrderDto {
   createdAt: string;
 }
 
+/**
+ * Wire shape of one order in the API's `GET /orders` (the caller's own
+ * orders, for the "My tickets" page): enough to recognise the order without
+ * fetching it, the event, or its seats separately.
+ */
+export interface OrderSummaryDto {
+  id: string;
+  status: OrderStatus;
+  /** Total charged, in cents. */
+  totalAmount: number;
+  /** ISO 8601 timestamp. */
+  createdAt: string;
+  /** Seat labels such as `A1`, sorted by row then number. */
+  seatLabels: string[];
+  event: { eventId: string; title: string };
+  performance: { performanceId: string; date: string; time: string; venue: string; city: string };
+}
+
 /** Request body for the API's `POST /orders`. */
 export interface CreateOrderRequestDto {
   performanceId: string;

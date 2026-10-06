@@ -1,8 +1,8 @@
 import { PerformanceNotFoundError } from '../common/errors/domain-errors.js';
 import type { IEventRepository } from '../events/event.repository.js';
-import type { CreateOrderInput, IOrderRepository, Order } from './order.repository.js';
+import type { CreateOrderInput, IOrderRepository, Order, OrderSummary } from './order.repository.js';
 
-export type { CreateOrderInput, Order, OrderItem, OrderStatus } from './order.repository.js';
+export type { CreateOrderInput, Order, OrderItem, OrderStatus, OrderSummary } from './order.repository.js';
 
 /**
  * Orchestrates checkout: verifies the performance exists, then delegates
@@ -38,5 +38,10 @@ export class OrderService {
   /** Reads a single order, or null if it does not exist. */
   async findOrderById(orderId: string): Promise<Order | null> {
     return this.orderRepository.findOrderById(orderId);
+  }
+
+  /** Lists a buyer's orders for their "My tickets" page, newest first. */
+  async listOrdersForUser(userId: string): Promise<OrderSummary[]> {
+    return this.orderRepository.listOrderSummariesByUser(userId);
   }
 }

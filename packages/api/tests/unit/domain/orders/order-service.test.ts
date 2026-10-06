@@ -8,6 +8,7 @@ function createMockOrderRepository(): IOrderRepository {
   return {
     createOrder: vi.fn(),
     findOrderById: vi.fn(),
+    listOrderSummariesByUser: vi.fn(),
     updateOrderStatus: vi.fn(),
     recordStripeSessionAndAdvance: vi.fn(),
     releaseSeatsForOrder: vi.fn(),
@@ -115,5 +116,16 @@ describe('OrderService', () => {
     const service = new OrderService(orderRepository, eventRepository);
 
     await expect(service.findOrderById('order-ghost')).resolves.toBeNull();
+  });
+
+  it("lists a user's order summaries from the repository", async () => {
+    const orderRepository = createMockOrderRepository();
+    const eventRepository = createMockEventRepository();
+    const summaries = [{ orderId: 'order-1' }];
+    (orderRepository.listOrderSummariesByUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce(summaries);
+    const service = new OrderService(orderRepository, eventRepository);
+
+    await expect(service.listOrdersForUser('user-1')).resolves.toBe(summaries);
+    expect(orderRepository.listOrderSummariesByUser).toHaveBeenCalledWith('user-1');
   });
 });

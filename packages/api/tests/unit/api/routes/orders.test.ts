@@ -32,6 +32,7 @@ function createMockOrderService(): OrderService {
   return {
     createOrder: vi.fn(),
     findOrderById: vi.fn(),
+    listOrdersForUser: vi.fn(),
   } as unknown as OrderService;
 }
 
@@ -232,6 +233,72 @@ describe('orders routes', () => {
       });
 
       expect(response.statusCode).toBe(409);
+    });
+  });
+
+  describe('GET /orders', () => {
+    const summary = {
+      orderId: 'order-1',
+      status: 'completed' as const,
+      totalAmount: 33000,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      seatLabels: ['A12', 'A13'],
+      event: { eventId: 'event-1', title: 'The Lighthouse Keeper' },
+      performance: {
+        performanceId: 'perf-1',
+        date: '2026-10-16',
+        time: '19:30:00',
+        venue: 'Teatro Alameda',
+        city: 'Madrid',
+      },
+    };
+
+    it('returns 401 with no Authorization header', async () => {
+      const response = await app.inject({ method: 'GET', url: '/orders' });
+      expect(response.statusCode).toBe(401);
+      expect(orderService.listOrdersForUser).not.toHaveBeenCalled();
+    });
+
+    it("returns 200 with the caller's order summaries", async () => {
+      (orderService.listOrdersForUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce([summary]);
+
+      const response = await app.inject({ method: 'GET', url: '/orders', headers: authHeader() });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual([
+        {
+          id: 'order-1',
+          status: 'completed',
+          totalAmount: 33000,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          seatLabels: ['A12', 'A13'],
+          event: { eventId: 'event-1', title: 'The Lighthouse Keeper' },
+          performance: {
+            performanceId: 'perf-1',
+            date: '2026-10-16',
+            time: '19:30:00',
+            venue: 'Teatro Alameda',
+            city: 'Madrid',
+          },
+        },
+      ]);
+    });
+
+    it('returns an empty array when the user has no orders', async () => {
+      (orderService.listOrdersForUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+
+      const response = await app.inject({ method: 'GET', url: '/orders', headers: authHeader() });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual([]);
+    });
+
+    it("always lists the token's user, ignoring a userId in the query", async () => {
+      (orderService.listOrdersForUser as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+
+      await app.inject({ method: 'GET', url: '/orders?userId=user-2', headers: authHeader('user-1') });
+
+      expect(orderService.listOrdersForUser).toHaveBeenCalledWith('user-1');
     });
   });
 

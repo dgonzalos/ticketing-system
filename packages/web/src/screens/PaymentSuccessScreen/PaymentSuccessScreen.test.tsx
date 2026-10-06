@@ -52,7 +52,8 @@ describe('PaymentSuccessScreen', () => {
 
     expect(await screen.findByText('✅ Payment Complete!')).toBeInTheDocument();
     expect(screen.getByText('order-1')).toBeInTheDocument();
-    expect(screen.getByText('Status: completed')).toBeInTheDocument();
+    expect(screen.getByText('Paid')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View my tickets' })).toHaveAttribute('href', '/tickets');
     expect(screen.getByText('Email: buyer@example.com')).toBeInTheDocument();
   });
 

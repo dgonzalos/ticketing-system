@@ -1,6 +1,9 @@
 export { BackLink } from './BackLink';
 export type { BackLinkProps } from './BackLink';
 
+export { Badge } from './Badge';
+export type { BadgeProps, BadgeTone } from './Badge';
+
 export { Button } from './Button';
 export type { ButtonProps, ButtonVariant, ButtonSize } from './Button';
 

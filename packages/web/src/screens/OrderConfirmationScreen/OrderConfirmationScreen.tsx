@@ -2,12 +2,13 @@ import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PriceSummary, SeatsSummaryList } from '../../components/Orders';
 import type { OrderSeatSummary } from '../../components/Orders';
-import { Button, Card } from '../../components/ui';
+import { Badge, Button, Card } from '../../components/ui';
 import { useAuth } from '../../hooks/useAuth';
 import { useInitiatePayment } from '../../hooks/useInitiatePayment';
 import { useOrder } from '../../hooks/useOrder';
 import { useSeats } from '../../hooks/useSeats';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { ORDER_STATUS } from '../../utils/orderStatus';
 import styles from './OrderConfirmationScreen.module.css';
 
 /**
@@ -65,7 +66,9 @@ export function OrderConfirmationScreen() {
           Order ID: <span className={styles.orderId}>{order.id}</span>
         </p>
         <p className={styles.meta}>Email: {order.email}</p>
-        <p className={styles.meta}>Status: {order.status}</p>
+        <p className={styles.meta}>
+          Status: <Badge tone={ORDER_STATUS[order.status].tone}>{ORDER_STATUS[order.status].label}</Badge>
+        </p>
         <SeatsSummaryList seats={seatSummaries} />
         <PriceSummary subtotal={subtotal} tax={tax} total={order.totalAmount} />
         {(order.status === 'pending' || order.status === 'payment_processing') && (

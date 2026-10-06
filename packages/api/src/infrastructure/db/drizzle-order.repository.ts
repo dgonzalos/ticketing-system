@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import {
   OrderPriceMismatchError,
@@ -7,7 +7,13 @@ import {
   OrderSeatNotFoundError,
   OrderSeatOwnershipError,
 } from '../../domain/common/errors/domain-errors.js';
-import type { CreateOrderInput, IOrderRepository, Order, OrderStatus } from '../../domain/orders/order.repository.js';
+import type {
+  CreateOrderInput,
+  IOrderRepository,
+  Order,
+  OrderStatus,
+  OrderSummary,
+} from '../../domain/orders/order.repository.js';
 import { isActiveReservation, lockSeatsForUpdate, markSeatsSold, type DbTransaction, type SeatRow } from './seat-queries.js';
 import * as schema from './schema/index.js';
 
@@ -23,6 +29,9 @@ type OrderItemRow = typeof schema.orderItemsTable.$inferSelect;
  * literal here instead.
  */
 const TAX_RATE = 0.1;
+
+/** Most recent orders returned by `listOrderSummariesByUser` (see its contract in `order.repository.ts`). */
+const ORDER_SUMMARY_LIMIT = 50;
 
 /**
  * Validates that every locked seat is purchasable by `userId` for
@@ -126,6 +135,52 @@ export class DrizzleOrderRepository implements IOrderRepository {
     const itemRows = rows.flatMap((row) => (row.item ? [row.item] : []));
 
     return toOrder(orderRow, itemRows);
+  }
+
+  async listOrderSummariesByUser(userId: string): Promise<OrderSummary[]> {
+    const o = schema.ordersTable;
+    const p = schema.performancesTable;
+    const e = schema.eventsTable;
+    const i = schema.orderItemsTable;
+    const s = schema.seatsTable;
+
+    // One aggregate query for the whole page, not one per order. Date/time
+    // are formatted as text in SQL, as in DrizzleEventRepository's
+    // summaries, so node-postgres doesn't turn a `date` into a JS Date.
+    const rows = await this.db
+      .select({
+        orderId: o.id,
+        status: o.status,
+        totalAmount: o.totalAmount,
+        createdAt: o.createdAt,
+        seatLabels: sql<string[]>`coalesce(array_agg(${s.row} || ${s.number} order by ${s.row}, ${s.number}) filter (where ${s.id} is not null), '{}')`,
+        eventId: e.id,
+        eventTitle: e.title,
+        performanceId: p.id,
+        date: sql<string>`to_char(${p.date}, 'YYYY-MM-DD')`,
+        time: sql<string>`${p.time}::text`,
+        venue: p.venue,
+        city: p.city,
+      })
+      .from(o)
+      .innerJoin(p, eq(p.id, o.performanceId))
+      .innerJoin(e, eq(e.id, p.eventId))
+      .leftJoin(i, eq(i.orderId, o.id))
+      .leftJoin(s, eq(s.id, i.seatId))
+      .where(eq(o.userId, userId))
+      .groupBy(o.id, p.id, e.id)
+      .orderBy(desc(o.createdAt))
+      .limit(ORDER_SUMMARY_LIMIT);
+
+    return rows.map((row) => ({
+      orderId: row.orderId,
+      status: row.status as OrderStatus,
+      totalAmount: row.totalAmount,
+      createdAt: row.createdAt,
+      seatLabels: row.seatLabels,
+      event: { eventId: row.eventId, title: row.eventTitle },
+      performance: { performanceId: row.performanceId, date: row.date, time: row.time, venue: row.venue, city: row.city },
+    }));
   }
 
   async updateOrderStatus(orderId: string, fromStatus: OrderStatus, toStatus: OrderStatus): Promise<Order | null> {
