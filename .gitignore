@@ -5,6 +5,7 @@ build/
 .env
 .env.local
 .env.neon
+.env.mcp
 *.log
 .DS_Store
 .vscode

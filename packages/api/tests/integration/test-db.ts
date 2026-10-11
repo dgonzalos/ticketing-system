@@ -37,6 +37,8 @@ loadEnv({ path: path.join(repoRoot, '.env'), quiet: true });
 export interface TestDatabase {
   db: NodePgDatabase<typeof schema>;
   dbName: string;
+  /** Connection string for this database, for a test that opens its own pool (e.g. via `createReadOnlyDb`). */
+  databaseUrl: string;
   /** Drops the database. Call in `afterAll`. */
   teardown: () => Promise<void>;
 }
@@ -112,7 +114,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
       await dropTestDatabase(adminDatabaseUrl, dbName);
     };
 
-    return { db, dbName, teardown };
+    return { db, dbName, databaseUrl: testDatabaseUrl, teardown };
   } catch (err) {
     await dropTestDatabase(adminDatabaseUrl, dbName);
     throw err;

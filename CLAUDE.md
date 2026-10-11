@@ -15,6 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Web** (`packages/web`): React 18 + Vite frontend, routed with React Router (`react-router-dom`). Styling is plain CSS Modules — no Tailwind, Sass, PostCSS, or CSS-in-JS. Colors/spacing/typography are provided by a design-token system rather than hardcoded per component — see "Styling and design tokens" below. Data fetching via TanStack Query.
 - **Shared** (`packages/shared`): cross-package TypeScript types only, no build step — consumed exclusively via `import type` so both `tsc` (api) and Vite/esbuild (web) erase it at compile time. Do not add runtime values here without adding a real build step.
 - **Claude API** (`packages/api`): `@anthropic-ai/sdk` + `zod-to-json-schema` for the AI Admin Assistant's tool-calling layer — see "AI Admin Assistant" below. Reachable via `POST /admin/assistant/messages` and `POST /admin/assistant/respond`, and consumed by `packages/web/src/screens/AdminAssistantScreen/`.
+- **MCP** (`packages/api`): `@modelcontextprotocol/sdk` for a read-only analytics MCP server over stdio — see "MCP server (read-only analytics)" below.
 
 ## Repository structure
 
@@ -34,12 +35,14 @@ packages/
         orders/               order-service.ts (OrderService), order.repository.ts (IOrderRepository)
         payments/             payment.service.ts (IPaymentService) — see "Payments (Stripe)" below
         ai/                   admin-assistant.service.ts (AdminAssistantService), admin-tool-executor.ts (AdminToolExecutor), ai-action-log.repository.ts (IAiActionLogRepository), ai-budget-guard.service.ts (AiBudgetGuard), conversation-store.ts (IConversationStore) — see "AI Admin Assistant" below
+        analytics/            analytics.service.ts (AnalyticsService), analytics.repository.ts (IAnalyticsRepository) — read-only, backs the MCP server, see "MCP server (read-only analytics)" below
         users/                user-service.ts (UserService), user.repository.ts (IUserRepository), token-signer.ts — User now carries a role: 'customer' | 'admin'
         common/errors/        domain-errors.ts — shared domain error types
       infrastructure/
-        db/                  Drizzle client/schema/migrations, seed.ts, seed-admin.ts, and drizzle-*.repository.ts implementations of the interfaces above
+        db/                  Drizzle client/schema/migrations, seed.ts, seed-admin.ts, and drizzle-*.repository.ts implementations of the interfaces above; read-only-client.ts and sql/create-mcp-readonly-role.sql for the MCP server
         payment/              stripe-config.ts, stripe-payment.service.ts (StripePaymentService, implements IPaymentService)
         config/              env/config loading (not scaffolded yet — still empty)
+      mcp/                   read-only analytics MCP server — server.ts (tools), tool-schemas.ts, stdio.ts (entry point, separate process from index.ts)
     tests/
       unit/                  real, populated vitest suites (routes + domain), mocked repositories, no DB
       integration/           tests needing real SQL behavior a mocked repository can't exercise; runs against a throwaway per-run Postgres database (see "Testing strategy")
@@ -179,6 +182,22 @@ A natural-language layer over the admin catalog write side (`EventAdminService`)
 - **`services/http.ts` gained `ApiError extends Error`** (carries the HTTP status code), used only by the new `services/adminAssistantApi.ts` — every other API client (`orderApi.ts`, `authApi.ts`, etc.) still throws a plain `Error`, deliberately not retrofitted, since this is the first client that needs to tell a 429 (budget exceeded — its own dedicated UI state) apart from a generic failure.
 - **The composer disables itself whenever a `pendingAction` is pending** — the backend's one-pending-action-per-conversation rule (`PendingActionExistsError` → 409) is real and still enforced server-side, but this keeps the 409 rare in practice rather than a normal flow. Same relationship between disabling Confirm/Reject while in flight and the `respond` 404 (`ConversationNotFoundError`) on a double-submit race.
 
+## MCP server (read-only analytics)
+
+`packages/api/src/mcp/` is an MCP server that lets an MCP client (Claude Code, Claude Desktop) **query** Seatly's data: catalogue, seat occupancy, revenue, and the order funnel. It is the read side next to the AI Admin Assistant's write side, with the opposite shape: here the *client* runs the model, so this package makes no Anthropic calls, has no budget guard, and writes no audit rows.
+
+**It can never create, update, or delete data — a hard requirement, enforced in four independent layers.** Don't weaken any of them, and don't add a write tool here: MCP has no propose-then-confirm step of its own, only the client's tool-approval prompt, so a write here would move the safety guarantee out of this codebase. Catalogue writes belong to the assistant.
+1. **Protocol:** only query tools are registered, each annotated `readOnlyHint: true`. `tests/unit/mcp/server.test.ts` pins the exact tool list and fails on any write-like name.
+2. **Code:** `createAnalyticsMcpServer` (`server.ts`) receives `AnalyticsService` and `EventCatalog` only — never `EventAdminService`/`OrderService`/`SeatLockManager`/`UserService` — the same structural rule as `AdminToolExecutor`. `IAnalyticsRepository` has no write methods.
+3. **Session:** `stdio.ts` connects through `infrastructure/db/read-only-client.ts`'s `createReadOnlyDb`, whose sessions run with `default_transaction_read_only = on` (writes fail with SQLSTATE 25006 — proven by `tests/integration/analytics.test.ts`). It's set as a startup option, which `pg` lets a connection-string `?options=` parameter silently override, so `createReadOnlyDb` rejects any URL carrying `options` (and any non-URL connection string), and `stdio.ts` runs `assertReadOnlySession` (`SHOW default_transaction_read_only` must be `on`) before serving a single tool. The same startup options set a server-side `statement_timeout` (5 s) and `idle_in_transaction_session_timeout`, so Postgres cancels a runaway aggregate itself; `pg`'s `query_timeout` only stops the client waiting and is kept 1 s longer as a backstop. The role script sets the same limits on the role.
+4. **Role:** `MCP_DATABASE_URL` should point at `seatly_mcp_readonly`, created by `infrastructure/db/sql/create-mcp-readonly-role.sql` (run by hand with psql as a superuser/owner — the app's `ticketing` role has no `CREATEROLE`). It has `SELECT` only, on `events`, `performances`, `order_items`, and *some columns* of `seats` and `orders` — no `users`, no `email`/`user_id`/`stripe_session_id`/`reserved_by` — because whatever a client reads is forwarded to a model. `stdio.ts` **refuses to start without `MCP_DATABASE_URL`** and deliberately never falls back to `DATABASE_URL` — the app role can read every column, so a fallback would leave PII protection resting on every future query naming its columns by hand.
+
+Tools: `list_events` and `list_performances` (reusing `EventCatalog`), `performance_occupancy` (sold/held/available/blocked + sell-through %), `revenue_summary` (completed orders per event or performance), `order_funnel` (orders per status + completion rate). Amounts are integer cents; date ranges are `YYYY-MM-DD` days in `Europe/Madrid` (`BUSINESS_TIME_ZONE` in `analytics.service.ts` — one business calendar, not per venue: Lisbon venues run an hour behind) on `orders.created_at`, defaulting to the last 30 days, capped at 366 (`AnalyticsService.resolveRange`). The SQL converts each local midnight with `AT TIME ZONE`, so daylight-saving changes are Postgres's job, and "today" for upcoming performances is also Madrid's date — deliberately unlike the public catalog's UTC "today". `DrizzleAnalyticsRepository` names every column explicitly — a whole-table `select()` would fail under the column grants.
+
+**Launching.** `.mcp.json` registers it for Claude Code as `seatly-analytics`: `node --env-file=.env.mcp --import tsx packages/api/src/mcp/stdio.ts`, from the repo root. `.env.mcp` (gitignored) holds only `MCP_DATABASE_URL` — never point a launcher at the root `.env`, which would hand this process every app secret (Stripe, Anthropic, JWT, admin password) for no reason. Point `.env.mcp` at local `ticketing_dev` or at Neon as needed. Two rules: **never write to stdout** in this process (it *is* the JSON-RPC channel — use `console.error`), and **never launch it through `pnpm`/`npx`**, which print banners to stdout. For Claude Desktop, put the same command in `claude_desktop_config.json` using absolute paths for both `--env-file` and the script, since its working directory isn't the repo. `pnpm --filter @ticketing/api mcp:inspect` opens the MCP Inspector for manual testing — pinned to an exact version (`@modelcontextprotocol/inspector@2.9.0`, run via `npx`, so bump it deliberately) and reading the `seatly-analytics` entry from `.mcp.json` via `--config`/`--server`, so it launches exactly what Claude Code launches. Don't pass the server command to the inspector directly: it parses `--env-file`/`--import` as its own flags and `node` ends up with no script. For Neon, `.env.mcp` must hold Neon's *direct* (non-`-pooler`) read-only URL — the pooler rejects the startup option layer 3 sets.
+
+Not reachable from the deployed API: `src/index.ts` never imports `src/mcp/`, nothing runs on Railway, and there is no HTTP transport (remote access would need real auth — a separate, larger phase). `docs/3-mcp-server-implementation.md` is the original sketch; its fraud/pricing/forecast tools rely on data the app doesn't store and are not built.
+
 ## Development conventions
 
 - ESM everywhere — no CommonJS (`require`) in `packages/api/src`.
@@ -236,6 +255,7 @@ The root `package.json` has no `scripts` field — there is no `pnpm dev`/`pnpm 
 - `db:migrate` — `tsx src/infrastructure/db/migrate.ts` (applies pending migrations directly; migrations also run automatically on server startup via `runMigrations()` in `index.ts`)
 - `db:seed` — `tsx src/infrastructure/db/seed.ts` (safe to re-run — clears and reinserts catalog data)
 - `db:seed-admin` — `tsx src/infrastructure/db/seed-admin.ts` (idempotent — grants `role: 'admin'` to the account identified by `ADMIN_EMAIL`/`ADMIN_PASSWORD`, creating it if it doesn't exist yet; see "Admin and authorization")
+- `mcp:inspect` — opens the MCP Inspector against the read-only analytics MCP server (see "MCP server (read-only analytics)"). The server itself is launched by an MCP client via `.mcp.json`, not by a package script.
 
 `packages/web` (`@ticketing/web`):
 - `dev` — `vite`

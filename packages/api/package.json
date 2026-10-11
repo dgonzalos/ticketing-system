@@ -18,13 +18,15 @@
     "db:seed": "tsx src/infrastructure/db/seed.ts",
     "db:seed:neon": "tsx --env-file=../../.env.neon src/infrastructure/db/seed.ts",
     "db:seed-admin": "tsx src/infrastructure/db/seed-admin.ts",
-    "db:seed-admin:neon": "tsx --env-file=../../.env.neon src/infrastructure/db/seed-admin.ts"
+    "db:seed-admin:neon": "tsx --env-file=../../.env.neon src/infrastructure/db/seed-admin.ts",
+    "mcp:inspect": "npx -y @modelcontextprotocol/inspector@2.9.0 --web --config ../../.mcp.json --server seatly-analytics --cwd ../.."
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
     "@fastify/cors": "^8.4.0",
     "@fastify/helmet": "^11.1.0",
     "@fastify/jwt": "^8.0.1",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "@ticketing-system/shared": "workspace:*",
     "argon2": "^0.41.1",
     "drizzle-orm": "^0.45.2",

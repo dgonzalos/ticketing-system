@@ -187,3 +187,13 @@ export class PendingActionExistsError extends DomainError {
     super(`Conversation ${conversationId} has a pending action awaiting confirm/reject — resolve it before sending another message`);
   }
 }
+
+/**
+ * Thrown by `AnalyticsService` for a date range it won't query: a malformed
+ * date, `from` after `to`, or a span longer than its maximum.
+ */
+export class InvalidDateRangeError extends DomainError {
+  constructor(reason: string) {
+    super(`Invalid date range: ${reason}`);
+  }
+}

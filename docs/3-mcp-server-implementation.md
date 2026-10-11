@@ -1,5 +1,12 @@
 # 3. MCP SERVER — Admin Intelligence Backend
 
+> **Status (2026-10-06): Phase 1 built, as read-only analytics, not as written below.** The real server is in
+> `packages/api/src/mcp/` and documented in CLAUDE.md under "MCP server (read-only analytics)": tools
+> `list_events`, `list_performances`, `performance_occupancy`, `revenue_summary`, `order_funnel`, enforced read-only in
+> four layers. The fraud detection, price optimization and demand forecast tools below are an early sketch and
+> are **not implemented**: they depend on data the app does not store (IP, payment method, demand history).
+> Treat this document as background, not a spec.
+
 ## WHAT IS MCP? (Quick Recap)
 
 **Model Context Protocol** = a protocol for connecting Claude to custom tools.
